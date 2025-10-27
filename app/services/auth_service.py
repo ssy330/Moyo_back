@@ -36,8 +36,8 @@ def authenticate_user(db: Session, email: str, password: str) -> User | None:
 def request_email_code(db: Session, email: str) -> None:
     now = datetime.utcnow()
     ev = db.execute(select(EmailVerification).where(EmailVerification.email == email)).scalar_one_or_none()
-    # 60초 이내 재요청 제한
-    if ev and ev.last_sent_at and (now - ev.last_sent_at).total_seconds() < 60:
+    # 15초 이내 재요청 제한
+    if ev and ev.last_sent_at and (now - ev.last_sent_at).total_seconds() < 15:
         raise ValueError("Too many requests. Please wait a moment.")
     code = gen_code()
     code_h = hash_code(code)
