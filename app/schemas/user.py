@@ -16,3 +16,10 @@ class SignupOut(BaseModel):
 class LoginOut(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    
+class EmailRequest(BaseModel):
+    email: EmailStr
+    
+class EmailConfirm(BaseModel):
+    email: EmailStr
+    code: str
