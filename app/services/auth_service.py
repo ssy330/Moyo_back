@@ -12,7 +12,7 @@ def create_user(db: Session, data: UserCreate) -> User:
     email = data.email.lower().strip()
     existing = db.query(User).filter(User.email == email).first()
     if existing:
-        raise HTTPException(status_code=400, detail="Email already registered")
+        raise HTTPException(status_code=409, detail="Email already registered")
 
     user = User(
         email=email,
