@@ -10,6 +10,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.utils.security import decode_access_token
 from sqlalchemy import select
 from app.models.user import User
+from fastapi import status
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -57,6 +58,29 @@ def login(body: UserLogin, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     token = create_access_token({"sub": user.email})
     return {"access_token": token, "token_type": "bearer"}
+
+# 회원 탈퇴
+@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
+def delete_account(
+    creds: HTTPAuthorizationCredentials = Depends(bearer),
+    db: Session = Depends(get_db)
+):
+    if creds is None or creds.scheme.lower() != "bearer":
+        raise HTTPException(status_code=401, detail="Missing or invalid token")
+    
+    try:
+        payload = decode_access_token(creds.credentials)
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    
+    email = payload.get("sub")
+    user = db.execute(select(User).where(User.email == email)).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    db.delete(user)
+    db.commit()
+    return {"message": "Account deleted successfully"}
 
 # [신규] 보호 라우트: 현재 로그인 사용자 정보
 @router.get("/me")
