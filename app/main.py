@@ -9,6 +9,7 @@ from app import models
 from app.routers import auth as auth_router
 from app.routers import invites as invites_router
 from app.models import invite as _invite_models
+from app.routers import group as groups_router
 
 
 # 1) 개발 편의: 모델로 테이블 생성 (운영 전환 시 Alembic 권장)
@@ -41,6 +42,7 @@ app.add_middleware(
 # 4) API 라우터 연결 (버저닝 프리픽스)
 app.include_router(auth_router.router, prefix="/api/v1")
 app.include_router(invites_router.router, prefix="/api/v1")
+app.include_router(groups_router.router, prefix="/api/v1")
 
 # 5) 루트 & 헬스체크
 @app.get("/", tags=["system"])

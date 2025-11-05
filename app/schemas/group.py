@@ -2,7 +2,7 @@
 from datetime import datetime
 from enum import Enum
 from pydantic import BaseModel, HttpUrl, field_validator
-from typing import Optional
+from typing import Optional, List
 
 class IdentityMode(str, Enum):
     REALNAME = "REALNAME"
@@ -36,3 +36,31 @@ class GroupResponse(BaseModel):
 
     class Config:
         from_attributes = True  # (Pydantic v2) orm_mode 대체
+
+# [추가]
+class GroupInfoOut(BaseModel):
+    id: int
+    name: str
+    description: Optional[str] = None
+    image_url: Optional[str] = None
+    requires_approval: bool
+    identity_mode: IdentityMode
+    creator_id: int
+    created_at: datetime
+    updated_at: datetime
+    member_count: int
+
+    class Config:
+        from_attributes = True
+
+class GroupMemberOut(BaseModel):
+    user_id: int
+    role: str
+    joined_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class GroupDetailOut(BaseModel):
+    group: GroupInfoOut
+    members: List[GroupMemberOut]
