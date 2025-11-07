@@ -56,7 +56,7 @@ def list_group_members(db: Session, group_id: int, limit: int = 50, offset: int 
     rows = db.execute(
         select(GroupMember)
         .where(GroupMember.group_id == group_id)
-        .order_by(GroupMember.joined_at.asc())
+        .order_by(GroupMember.joined_at.asc(), GroupMember.user_id.asc())
         .limit(limit).offset(offset)
     ).scalars().all()
     return rows

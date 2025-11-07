@@ -1,6 +1,7 @@
 # app/routers/group_router.py
 from fastapi import APIRouter, Depends
 from fastapi import HTTPException, Query
+from fastapi import Response, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -13,13 +14,17 @@ from app.services.group_service import get_group_with_count, list_group_members
 
 router = APIRouter(prefix="/groups", tags=["Group"])
 
-@router.post("/", response_model=GroupResponse)
+@router.post("/", response_model=GroupResponse, status_code=status.HTTP_201_CREATED)
 def create_group_api(
     payload: GroupCreate,
+    response: Response,
     db: Session = Depends(get_db),
     user: User = Depends(current_user),   # 로그인 필수, JWT에서 사용자 읽기
+    
 ):
-    return create_group(db, creator_id=user.id, data=payload)
+    g = create_group(db, creator_id=user.id, data=payload)
+    response.headers["Location"] = f"/api/v1/groups/{g.id}"   # [추가]
+    return g
 
 @router.get("/{group_id}", response_model=GroupInfoOut)
 def get_group_info_api(
@@ -52,6 +57,11 @@ def get_group_members_api(
     db: Session = Depends(get_db),
     user: User = Depends(current_user),
 ):
+    # [추가] 그룹 존재 확인
+    pair = get_group_with_count(db, group_id)
+    if not pair:
+        raise HTTPException(status_code=404, detail="GROUP_NOT_FOUND")
+    
     members = list_group_members(db, group_id, limit=limit, offset=offset)
     return [
         {
