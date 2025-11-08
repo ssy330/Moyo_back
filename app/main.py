@@ -1,21 +1,22 @@
 # app/main.py
+from pathlib import Path
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import text
+from starlette.staticfiles import StaticFiles
 
 from app.database import Base, engine, get_db
 from app import models
 from app.routers import auth as auth_router
 from app.routers import invites as invites_router
-from app.models import invite as _invite_models
 from app.routers import group as groups_router
 
-
-# 1) 개발 편의: 모델로 테이블 생성 (운영 전환 시 Alembic 권장)
+# ─────────────────────────────
+# 1) DB 초기화
 Base.metadata.create_all(bind=engine)
 
-# 2) 앱 생성 + 문서 경로를 /api/v1 하위로 정리
+# 2) 앱 생성
 app = FastAPI(
     title="Auth API Example",
     openapi_url="/api/v1/openapi.json",
@@ -23,28 +24,37 @@ app = FastAPI(
     redoc_url="/api/v1/redoc",
 )
 
-# 3) CORS 허용 (프론트 개발 서버)
+# ─────────────────────────────
+# 🔧 static 경로 설정
+BASE_DIR = Path(__file__).resolve().parent          # C:\dev\moyo_back\app
+STATIC_DIR = BASE_DIR / "static"                    # C:\dev\moyo_back\app\static
+
+# ✅ 폴더 없으면 생성 (여기가 중요)
+STATIC_DIR.mkdir(parents=True, exist_ok=True)
+
+# ✅ 그 다음 마운트
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+# ─────────────────────────────
+# 3) CORS
 origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
-    # 배포 시 프론트 도메인 추가:
-    # "https://moyo.vercel.app",
-    # "https://your-frontend-domain.com",
 ]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_credentials=True,    # 쿠키/세션 사용 시 필요
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# 4) API 라우터 연결 (버저닝 프리픽스)
+# 4) 라우터 연결
 app.include_router(auth_router.router, prefix="/api/v1")
 app.include_router(invites_router.router, prefix="/api/v1")
 app.include_router(groups_router.router, prefix="/api/v1")
 
-# 5) 루트 & 헬스체크
+# 5) 헬스체크
 @app.get("/", tags=["system"])
 def root():
     return {"ok": True, "message": "Auth API running"}
