@@ -34,6 +34,9 @@ from app.schemas.group import (
 )
 from app.services.group_service import create_group
 
+from fastapi import HTTPException
+import traceback
+
 # ────────────────────────────────────────────────────────────────────────────────
 # 라우터 설정
 # ────────────────────────────────────────────────────────────────────────────────
@@ -63,44 +66,59 @@ def create_group_api(
     privacy_consent: bool = Form(True),
     image: UploadFile | None = File(None),
 ):
-    image_url = None
+    try:
+        image_url = None
 
-    # ① 이미지 업로드 처리
-    if image:
-        ext = os.path.splitext(image.filename)[1]
-        filename = f"{uuid.uuid4().hex}{ext}"
-        image_path = os.path.join(UPLOAD_DIR, filename)
+        # ① 이미지 업로드 처리
+        if image:
+            ext = os.path.splitext(image.filename)[1]
+            filename = f"{uuid.uuid4().hex}{ext}"
+            image_path = os.path.join(UPLOAD_DIR, filename)
 
-        with open(image_path, "wb") as buffer:
-            shutil.copyfileobj(image.file, buffer)
+            with open(image_path, "wb") as buffer:
+                shutil.copyfileobj(image.file, buffer)
 
-        # ✅ 정식 URL로 저장 (React에서 바로 접근 가능)
-        image_url = f"static/group_images/{filename}"
+            image_url = f"static/group_images/{filename}".replace("\\", "/")
 
-    # ② 스키마에 맞게 identity_mode Enum 변환
-    identity_mode = IdentityMode(identity_mode.upper())
+        # ② 스키마에 맞게 Enum 변환
+        identity_mode = IdentityMode(identity_mode.upper())
 
-    # ③ 페이로드 구성
-    payload = GroupCreate(
-        name=name,
-        description=description,
-        requires_approval=requires_approval,
-        identity_mode=identity_mode,
-        privacy_consent=privacy_consent,
-        image_url=image_url,
-    )
+        # ③ 그룹 생성 (서비스 계층이 OWNER 자동 등록)
+        g = create_group(
+            db,
+            creator_id=user.id,
+            data=GroupCreate(
+                name=name,
+                description=description,
+                requires_approval=requires_approval,
+                identity_mode=identity_mode,
+                privacy_consent=privacy_consent,
+                image_url=image_url,
+            ),
+        )
 
-    # ④ 그룹 생성
-    g = create_group(db, creator_id=user.id, data=payload)
+        # ✅ 중복 문제 해결: OWNER 추가 코드를 제거함!
+        # (이미 create_group 내부에서 _ensure_owner_membership 호출함)
 
-    # ⑤ 생성자를 OWNER 멤버로 추가
-    db.add(GroupMember(group_id=g.id, user_id=user.id, role=GroupRole.OWNER))
-    db.commit()
-    db.refresh(g)
+        # ④ Enum 직렬화 방어
+        if hasattr(g.identity_mode, "value"):
+            g.identity_mode = g.identity_mode.value
 
-    # ⑥ 응답 헤더에 Location 설정
-    response.headers["Location"] = f"/api/v1/groups/{g.id}"
-    return g
+        # ⑤ 응답 헤더 설정
+        response.headers["Location"] = f"/groups/{g.id}"
+
+        # ⑥ 안정적 반환
+        return GroupResponse.model_validate(g, from_attributes=True)
+
+    except Exception as e:
+        import traceback, sys
+        print("🔥 [ERROR] 그룹 생성 중 예외 발생!")
+        print(traceback.format_exc())
+        sys.stdout.flush()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Group creation failed: {type(e).__name__} - {e}",
+        )
 
 
 # ────────────────────────────────────────────────────────────────────────────────

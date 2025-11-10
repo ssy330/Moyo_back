@@ -36,6 +36,9 @@ class GroupResponse(BaseModel):
 
     class Config:
         from_attributes = True  # (Pydantic v2) orm_mode 대체
+        json_encoders = {
+            IdentityMode: lambda v: v.value if hasattr(v, "value") else str(v),
+         }
 
 # [추가]
 class GroupInfoOut(BaseModel):
