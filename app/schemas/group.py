@@ -1,8 +1,10 @@
 # app/schemas/group.py
+from __future__ import annotations
 from datetime import datetime
 from enum import Enum
-from pydantic import BaseModel, HttpUrl, field_validator
+from pydantic import BaseModel, HttpUrl, field_validator, ConfigDict
 from typing import Optional, List
+#from .enums import IdentityMode
 
 class IdentityMode(str, Enum):
     REALNAME = "REALNAME"
@@ -67,3 +69,9 @@ class GroupMemberOut(BaseModel):
 class GroupDetailOut(BaseModel):
     group: GroupInfoOut
     members: List[GroupMemberOut]
+    
+    # ✅ 보드 연동 정보(없을 수도 있으니 Optional)
+    boardUrl: Optional[str] = None
+    boardMid: Optional[str] = None
+    
+    model_config = ConfigDict(from_attributes=True)

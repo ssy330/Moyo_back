@@ -7,6 +7,9 @@ from sqlalchemy import select, func
 from app.models.group import Group, IdentityMode
 from app.schemas.group import GroupCreate
 from app.models.group_member import GroupMember, GroupRole
+from app.schemas.group import GroupDetailOut, GroupInfoOut, GroupMemberOut
+from app.services import board_service
+
 
 # [추가]
 def _ensure_owner_membership(db: Session, group: Group, creator_id: int):
@@ -60,3 +63,19 @@ def list_group_members(db: Session, group_id: int, limit: int = 50, offset: int 
         .limit(limit).offset(offset)
     ).scalars().all()
     return rows
+
+def to_group_out(db: Session, group: Group) -> GroupDetailOut:
+    # 멤버 목록 만들어주기
+    members = db.execute(
+        select(GroupMember).where(GroupMember.group_id == group.id).order_by(GroupMember.joined_at.asc())
+    ).scalars().all()
+
+    # 보드 매핑(없으면 None)
+    mapping = board_service.get_mapping(db, group.id)  # m.mid 같은 속성 반환한다고 가정
+
+    return GroupDetailOut(
+        group=GroupInfoOut.model_validate(group),
+        members=[GroupMemberOut.model_validate(m) for m in members],
+        boardMid=(mapping.mid if mapping else None),
+        boardUrl=(board_service.build_url(mapping.mid) if mapping else None),
+    )

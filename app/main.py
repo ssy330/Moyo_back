@@ -11,6 +11,7 @@ from app import models
 from app.routers import auth as auth_router
 from app.routers import invites as invites_router
 from app.routers import group as groups_router
+from app.routers import boards
 
 # ─────────────────────────────
 # 1) DB 초기화
@@ -54,6 +55,7 @@ app.add_middleware(
 app.include_router(auth_router.router, prefix="/api/v1")
 app.include_router(invites_router.router, prefix="/api/v1")
 app.include_router(groups_router.router, prefix="/api/v1")
+app.include_router(boards.router)
 
 # 5) 헬스체크
 @app.get("/", tags=["system"])
