@@ -1,8 +1,8 @@
-# app/routers/groups.py
 from __future__ import annotations
 
 # ── 표준 라이브러리
 import os
+from pathlib import Path
 import shutil
 import uuid
 
@@ -39,9 +39,11 @@ from app.services.group_service import create_group
 # ────────────────────────────────────────────────────────────────────────────────
 router = APIRouter(prefix="/groups", tags=["Group"])
 
-# 이미지 업로드 디렉토리 생성
-UPLOAD_DIR = "static/group_images"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+# ✅ 절대 경로 기준으로 변경 (항상 app/static/group_images 안에 저장되도록)
+BASE_DIR = Path(__file__).resolve().parent.parent  # app/
+STATIC_DIR = BASE_DIR / "static"
+UPLOAD_DIR = STATIC_DIR / "group_images"
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 # ────────────────────────────────────────────────────────────────────────────────
 # POST /groups/
@@ -68,9 +70,12 @@ def create_group_api(
         ext = os.path.splitext(image.filename)[1]
         filename = f"{uuid.uuid4().hex}{ext}"
         image_path = os.path.join(UPLOAD_DIR, filename)
+
         with open(image_path, "wb") as buffer:
             shutil.copyfileobj(image.file, buffer)
-        image_url = f"/static/group_images/{filename}"
+
+        # ✅ 정식 URL로 저장 (React에서 바로 접근 가능)
+        image_url = f"static/group_images/{filename}"
 
     # ② 스키마에 맞게 identity_mode Enum 변환
     identity_mode = IdentityMode(identity_mode.upper())
@@ -109,9 +114,15 @@ def to_image_url(request: Request, path: str | None) -> str | None:
         return None
 
     norm = path.replace("\\", "/")
-    # DB에 'static/...'로 저장된 경우
+
+    # ✅ 이미 절대 URL이면 그대로 반환
+    if norm.startswith("http://") or norm.startswith("https://"):
+        return norm
+
+    # DB에 static으로 저장된 경우
     if norm.startswith("static/"):
         return str(request.url_for("static", path=norm[len("static/"):]))
+
     # 그렇지 않으면 static/ 접두어 붙이기
     return str(request.url_for("static", path=norm))
 
@@ -122,7 +133,6 @@ def list_my_groups(
     db: Session = Depends(get_db),
     user: User = Depends(current_user),
 ):
-    # ── ① 멤버 수 집계 서브쿼리
     subq = (
         select(
             GroupMember.group_id.label("gid"),
@@ -132,7 +142,6 @@ def list_my_groups(
         .subquery()
     )
 
-    # ── ② 내가 속한 그룹 + 멤버 수
     stmt = (
         select(
             Group,
@@ -142,12 +151,10 @@ def list_my_groups(
         .outerjoin(subq, subq.c.gid == Group.id)
         .where(GroupMember.user_id == user.id)
         .order_by(Group.created_at.desc())
-        # .distinct(Group.id)  # (필요 시) 중복 방지
     )
 
     rows = db.execute(stmt).all()
 
-    # ── ③ 결과 변환 및 반환
     return [
         GroupInfoOut(
             id=g.id,
