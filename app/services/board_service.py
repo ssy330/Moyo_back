@@ -1,7 +1,9 @@
 import os
 import httpx
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import select
+from sqlalchemy import select, func
+from app.models.group import Group
 from app.models.board_registry import BoardRegistry
 #from app.core.config import settings
 
@@ -20,16 +22,30 @@ async def head_ok(url: str) -> bool:
     except Exception:
         return False
 
-def upsert_mapping(db: Session, group_id: int, mid: str) -> BoardRegistry:
+async def upsert_mapping(db: Session, group_id: int, mid: str) -> tuple[BoardRegistry, int]:
+    # 1) 그룹 존재 확인
+    exists = db.scalar(select(func.count()).select_from(Group).where(Group.id == group_id))
+    if not exists:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    # 2) mid 중복(다른 그룹에서 사용) 방지
+    conflict = db.scalar(
+        select(func.count()).select_from(BoardRegistry)
+        .where(BoardRegistry.mid == mid, BoardRegistry.group_id != group_id)
+    )
+    if conflict:
+        raise HTTPException(status_code=409, detail="This mid is already mapped to another group")
+
+    # 3) upsert
     row = db.scalar(select(BoardRegistry).where(BoardRegistry.group_id == group_id))
     if row:
         row.mid = mid
+        db.commit(); db.refresh(row)
+        return row, 200  # updated
     else:
         row = BoardRegistry(group_id=group_id, mid=mid)
-        db.add(row)
-    db.commit()
-    db.refresh(row)
-    return row
+        db.add(row); db.commit(); db.refresh(row)
+        return row, 201  # created
 
 def get_mapping(db: Session, group_id: int) -> BoardRegistry | None:
     return db.scalar(select(BoardRegistry).where(BoardRegistry.group_id == group_id))
