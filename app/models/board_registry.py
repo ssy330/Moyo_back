@@ -1,18 +1,21 @@
 # group ↔ rhymix mid 매핑 !
 
-from sqlalchemy import Column, Integer, String, DateTime, UniqueConstraint
-from sqlalchemy.sql import func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import Integer, String, ForeignKey, UniqueConstraint
 from app.database import Base
 
 class BoardRegistry(Base):
     __tablename__ = "board_registry"
 
-    id = Column(Integer, primary_key=True)
-    group_id = Column(Integer, nullable=False, index=True)
-    mid = Column(String(100), nullable=False)           # Rhymix 게시판 mid (예: group_42_board)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    group_id: Mapped[int] = mapped_column(
+        ForeignKey("groups.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
+    mid: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+
+    group = relationship("Group", back_populates="board_registry", passive_deletes=True)
 
     __table_args__ = (
-        UniqueConstraint("group_id", name="uq_board_group"),
-        UniqueConstraint("mid", name="uq_board_mid"),
+        UniqueConstraint("group_id", name="uq_board_registry_group"),
+        UniqueConstraint("mid", name="uq_board_registry_mid"),
     )
