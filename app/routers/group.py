@@ -16,6 +16,7 @@ from fastapi import (
     Form,
     File,
     UploadFile,
+    HTTPException,
 )
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
@@ -31,10 +32,11 @@ from app.schemas.group import (
     GroupInfoOut,
     GroupCreate,
     IdentityMode,
+    GroupDetailOut,
 )
+from app.services import group_service
 from app.services.group_service import create_group
 
-from fastapi import HTTPException
 import traceback
 
 # ────────────────────────────────────────────────────────────────────────────────
@@ -119,6 +121,14 @@ def create_group_api(
             status_code=500,
             detail=f"Group creation failed: {type(e).__name__} - {e}",
         )
+
+
+@router.get("/{group_id}", response_model=GroupDetailOut)
+def get_group_detail(group_id: int, db: Session = Depends(get_db)):
+    g = group_service.get_group_with_relations(db, group_id)
+    if not g:
+        raise HTTPException(status_code=404, detail="Group not found")
+    return group_service.to_group_out(db, g)
 
 
 # ────────────────────────────────────────────────────────────────────────────────

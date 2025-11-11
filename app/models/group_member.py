@@ -22,6 +22,10 @@ class GroupMember(Base):
     joined_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
                         onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+    
+    # ✓ 역참조
+    group = relationship("Group", back_populates="members")
+    user  = relationship("User", back_populates="group_memberships")
 
     __table_args__ = (
         UniqueConstraint("group_id", "user_id", name="uq_group_member"),

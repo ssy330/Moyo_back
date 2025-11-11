@@ -1,5 +1,5 @@
 # app/services/group_service.py
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload, joinedload
 from fastapi import HTTPException, status
 from datetime import datetime
 from sqlalchemy import select, func
@@ -64,18 +64,31 @@ def list_group_members(db: Session, group_id: int, limit: int = 50, offset: int 
     ).scalars().all()
     return rows
 
+# 응답 변환 : 관계를 그대로 사용
 def to_group_out(db: Session, group: Group) -> GroupDetailOut:
-    # 멤버 목록 만들어주기
-    members = db.execute(
-        select(GroupMember).where(GroupMember.group_id == group.id).order_by(GroupMember.joined_at.asc())
-    ).scalars().all()
+    out = GroupDetailOut.model_validate(group)
 
-    # 보드 매핑(없으면 None)
-    mapping = board_service.get_mapping(db, group.id)  # m.mid 같은 속성 반환한다고 가정
+    # 보드 정보
+    if group.board_mapping:
+        out.boardMid = group.board_mapping.mid
+        out.boardUrl = board_service.build_url(group.board_mapping.mid)
+    else:
+        out.boardMid = None
+        out.boardUrl = None
 
-    return GroupDetailOut(
-        group=GroupInfoOut.model_validate(group),
-        members=[GroupMemberOut.model_validate(m) for m in members],
-        boardMid=(mapping.mid if mapping else None),
-        boardUrl=(board_service.build_url(mapping.mid) if mapping else None),
+    # 멤버 목록
+    out.members = [GroupMemberOut.model_validate(m) for m in group.members]
+    return out
+
+# 로딩 최적화: 그룹 + 관계 한 번에 가져오기
+def get_group_with_relations(db: Session, group_id: int) -> Group | None:
+    return (
+        db.query(Group)
+        .options(
+            selectinload(Group.members),       # 멤버들
+            joinedload(Group.board_mapping),   # 1:1 관계는 join로 깔끔
+            joinedload(Group.creator),         # 생성자
+        )
+        .filter(Group.id == group_id)
+        .first()
     )

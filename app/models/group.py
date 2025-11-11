@@ -51,6 +51,22 @@ class Group(Base):
     # 선택: User 모델이 있다면 아래 relationship 유지
     # creator = relationship("User", back_populates="groups")
 
+    # ✓ 역참조들
+    creator = relationship("User", back_populates="groups_created", lazy="joined")  # 1:N 중 N쪽에서의 참조
+    members = relationship(
+        "GroupMember",
+        back_populates="group",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    board_mapping = relationship(
+        "BoardRegistry",
+        back_populates="group",
+        uselist=False,                   # 1:1
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    
     # 개인정보 처리방침 동의 여부(감사 추적용)
     privacy_consent = Column(Boolean, nullable=False, default=True)
 
