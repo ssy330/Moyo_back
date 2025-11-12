@@ -55,8 +55,7 @@ class GroupInfoOut(BaseModel):
     updated_at: datetime
     member_count: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class GroupMemberOut(BaseModel):
     user_id: int
@@ -76,5 +75,3 @@ class GroupDetailOut(BaseModel):
     
     model_config = ConfigDict(from_attributes=True)
     
-    class Config:
-        from_attributes = True   # ORM 모델에서 바로 변환
