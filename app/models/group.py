@@ -81,8 +81,8 @@ class Group(Base):
     board_registry = relationship(
         "BoardRegistry",
         back_populates="group",
+        uselist=False,
         cascade="all, delete-orphan",
-        passive_deletes=True,
     )
 
     # 예: 그룹 내 멤버 관계가 있다면 추가 가능

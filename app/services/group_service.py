@@ -66,29 +66,45 @@ def list_group_members(db: Session, group_id: int, limit: int = 50, offset: int 
 
 # 응답 변환 : 관계를 그대로 사용
 def to_group_out(db: Session, group: Group) -> GroupDetailOut:
-    out = GroupDetailOut.model_validate(group)
+    """SQLAlchemy Group -> GroupDetailOut 변환"""
+    # 1) 상단의 group 정보(단일) 변환
+    info = GroupInfoOut.model_validate(group)  # from_attributes=True 기반
 
-    # 보드 정보
-    if group.board_mapping:
-        out.boardMid = group.board_mapping.mid
-        out.boardUrl = board_service.build_url(group.board_mapping.mid)
-    else:
-        out.boardMid = None
-        out.boardUrl = None
+    # 2) 멤버 목록 변환 (조인/정렬 필요시 조정)
+    members_rows = db.execute(
+        select(GroupMember)
+        .where(GroupMember.group_id == group.id)
+        .order_by(GroupMember.joined_at.asc())
+    ).scalars().all()
 
-    # 멤버 목록
-    out.members = [GroupMemberOut.model_validate(m) for m in group.members]
+    members_out = [
+        GroupMemberOut(
+            user_id=m.user_id,
+            role=m.role,
+            joined_at=m.joined_at,
+        )
+        for m in members_rows
+    ]
+
+    # 3) Rhymix 게시판 매핑 정보
+    out = GroupDetailOut(
+        group=info,
+        members=members_out,
+        boardUrl=None,
+        boardMid=None,
+    )
+    m = board_service.get_mapping(db, group.id)
+    if m:
+        out.boardMid = m.mid
+        out.boardUrl = board_service.build_url(m.mid)
+
     return out
 
-# 로딩 최적화: 그룹 + 관계 한 번에 가져오기
-def get_group_with_relations(db: Session, group_id: int) -> Group | None:
-    return (
-        db.query(Group)
-        .options(
-            selectinload(Group.members),       # 멤버들
-            joinedload(Group.board_mapping),   # 1:1 관계는 join로 깔끔
-            joinedload(Group.creator),         # 생성자
-        )
-        .filter(Group.id == group_id)
-        .first()
+# 조회 시 관계 로딩 + DTO 변환
+def get_group_with_relations(db, group_id: int) -> Group | None:
+    stmt = (
+        select(Group)
+        .where(Group.id == group_id)
+        .options(selectinload(Group.board_registry))
     )
+    return db.scalar(stmt)

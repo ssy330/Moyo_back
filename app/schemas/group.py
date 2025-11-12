@@ -53,8 +53,6 @@ class GroupInfoOut(BaseModel):
     creator_id: int
     created_at: datetime
     updated_at: datetime
-    member_count: int
-
     model_config = ConfigDict(from_attributes=True)
 
 class GroupMemberOut(BaseModel):
@@ -62,8 +60,7 @@ class GroupMemberOut(BaseModel):
     role: str
     joined_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class GroupDetailOut(BaseModel):
     group: GroupInfoOut
