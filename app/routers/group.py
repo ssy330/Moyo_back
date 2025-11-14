@@ -123,14 +123,6 @@ def create_group_api(
         )
 
 
-@router.get("/{group_id}", response_model=GroupDetailOut)
-def get_group_detail(group_id: int, db: Session = Depends(get_db)):
-    g = group_service.get_group_with_relations(db, group_id)
-    if not g:
-        raise HTTPException(status_code=404, detail="Group not found")
-    return group_service.to_group_out(db, g)
-
-
 # ────────────────────────────────────────────────────────────────────────────────
 # GET /groups/my
 #   - 내가 속한 그룹 목록 + 멤버 수
@@ -202,3 +194,68 @@ def list_my_groups(
         )
         for g, mcount in rows
     ]
+
+
+@router.get("/{group_id}", response_model=GroupDetailOut)
+def get_group_detail(group_id: int, db: Session = Depends(get_db)):
+    g = group_service.get_group_with_relations(db, group_id)
+    if not g:
+        raise HTTPException(status_code=404, detail="Group not found")
+    return group_service.to_group_out(db, g)
+
+# 그룹 탈퇴
+@router.delete("/{group_id}/leave", status_code=status.HTTP_204_NO_CONTENT)
+def leave_group(
+    group_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+):
+    # 0) 내가 이 그룹에 속해 있는지 확인
+    stmt = (
+        select(GroupMember)
+        .where(
+            GroupMember.group_id == group_id,
+            GroupMember.user_id == user.id,
+        )
+    )
+    # 방장
+    gm = db.scalars(stmt).first()
+
+    if not gm:
+        raise HTTPException(status_code=404, detail="해당 그룹에 가입되어 있지 않습니다.")
+
+    # 1) 방장이 아닌 경우 → 그냥 탈퇴
+    if gm.role != GroupRole.OWNER:
+        db.delete(gm)
+        db.commit()
+        return  # 204 No Content
+
+    # 2) 방장인 경우 → 다른 멤버가 있는지 확인
+    #    나를 제외한 다른 멤버 중 한 명을 새 OWNER로 선택
+    next_owner_stmt = (
+        select(GroupMember)
+        .where(
+            GroupMember.group_id == group_id,
+            GroupMember.id != gm.id,
+        )
+        .order_by(GroupMember.id.asc())  # 가장 먼저 가입한(추정) 사람
+        .limit(1)
+    )
+    next_owner = db.scalars(next_owner_stmt).first()
+
+    if next_owner:
+        # 2-1) 다른 멤버가 있으면 → OWNER 위임 후 나는 탈퇴
+        next_owner.role = GroupRole.OWNER
+        db.delete(gm)
+        db.commit()
+        return
+
+    # 2-2) 다른 멤버가 없으면 → 그냥 탈퇴 + 그룹 해산
+    db.delete(gm)
+
+    group = db.get(Group, group_id)
+    if group:
+        db.delete(group)
+
+    db.commit()
+    return  # 204 No Content
