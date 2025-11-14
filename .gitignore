@@ -15,3 +15,6 @@ app.db
 .vscode/
 .idea/
 .DS_Store
+
+# 잠시 추가
+app/static/group_images/8bf0b6ccfa504385bcbd53595c5d819d.jpg
