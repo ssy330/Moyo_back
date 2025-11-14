@@ -75,6 +75,4 @@ class GroupDetailOut(BaseModel):
     boardMid: Optional[str] = None
     
     model_config = ConfigDict(from_attributes=True)
-    
-    class Config:
-        from_attributes = True   # ORM 모델에서 바로 변환
+

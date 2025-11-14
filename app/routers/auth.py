@@ -8,8 +8,9 @@ from app.utils.security import create_access_token
 from app.services.auth_service import request_email_code, confirm_email_code, ensure_recent_verified
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.utils.security import decode_access_token
-from sqlalchemy import select
+from sqlalchemy import select, func
 from app.models.user import User
+from app.models.group import Group
 from fastapi import status
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -78,9 +79,20 @@ def delete_account(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    # 방장으로 있는 그룹 수 확인
+    owned_group_count = db.scalar(
+        select(func.count()).select_from(Group).where(Group.creator_id == user.id)
+    )
+    
+    if owned_group_count and owned_group_count>0:
+        raise HTTPException(
+            status_code=400,
+            detail="방장으로 있는 그룹이 있어서 탈퇴할 수 없습니다. 그룹을 삭제하거나 방장을 위임한 후 다시 시도해 주세요."
+        )
+    
     db.delete(user)
     db.commit()
-    return {"message": "Account deleted successfully"}
+    return
 
 # [신규] 보호 라우트: 현재 로그인 사용자 정보
 @router.get("/me")
