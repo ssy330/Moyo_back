@@ -46,7 +46,14 @@ def signup(body: UserCreate, db: Session = Depends(get_db)):
         except ValueError as e:
             raise HTTPException(status_code=400, detail=f"Email not verified: {e}")
         user = create_user(db, body)
-        return {"message": "Signup successful", "user_id": user.id}
+         # ⬇ 로그인 때 쓰던 토큰 생성 로직 재사용
+        access_token = create_access_token({"sub": user.email})
+
+        # ⬇ 프론트가 기대하는 형태로 응답
+        return {
+            "access_token": access_token,
+            "user": user,
+        }
     except IntegrityError:
         db.rollback()
         # FIX: 중복 이메일은 409가 표준 (400 -> 409로 수정)
@@ -114,4 +121,4 @@ def me(
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
 
-    return {"id": user.id, "email": user.email, "name": user.name, "is_active": user.is_active}
+    return {"id": user.id, "email": user.email, "name": user.name, "nickname":user.nickname, "is_active": user.is_active}
