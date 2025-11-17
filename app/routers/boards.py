@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from app.database import get_db
+from app.models.group import Group
 from app.schemas.board import BoardMapIn, BoardMapOut
 from app.services import board_service
 from fastapi.responses import JSONResponse
@@ -21,9 +23,16 @@ async def put_mapping(group_id: int, body: BoardMapIn, db: Session = Depends(get
 
 @router.get("/groups/{group_id}/url", response_model=BoardMapOut)
 async def get_url(group_id: int, db: Session = Depends(get_db)):
-    row = board_service.get_mapping(db, group_id)
-    if not row:
-        raise HTTPException(status_code=404, detail="BOARD_NOT_MAPPED")
-    url = board_service.build_url(row.mid)
-    exists = await board_service.head_ok(url)
-    return BoardMapOut(groupId=group_id, mid=row.mid, url=url, exists=exists)
+   # 1) 그룹이 실제로 존재하는지만 확인
+    exists = db.scalar(
+        select(func.count()).select_from(Group).where(Group.id == group_id)
+    )
+    if not exists:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    # 2) group_id 기반으로 mid / url 계산
+    mid = board_service.build_mid(group_id)
+    url = board_service.build_url_from_group_id(group_id)
+    exists_flag = await board_service.url_exists(url)
+
+    return BoardMapOut(groupId=group_id, mid=mid, url=url, exists=exists_flag)
