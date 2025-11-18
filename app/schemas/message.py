@@ -13,6 +13,7 @@ class MessageOut(MessageBase):
     room_id: int
     user_id: int | None
     created_at: datetime
+    user_nickname: str | None = None 
 
     class Config:
         orm_mode = True

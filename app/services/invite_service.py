@@ -6,6 +6,8 @@ import json
 from app.models.invite import InviteCode
 from app.utils.invite import new_code
 
+PURPOSE_GROUP_JOIN = "group_join"
+
 def _unique_code(db: Session, length: int = 8) -> str:
     while True:
         code = new_code(length)

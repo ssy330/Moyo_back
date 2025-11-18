@@ -16,7 +16,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 # JWT 설정
 JWT_SECRET = os.getenv("JWT_SECRET", "dev-secret")
 JWT_ALG = os.getenv("JWT_ALG", "HS256")
-JWT_EXPIRE_MIN = int(os.getenv("JWT_EXPIRE_MIN", "60"))
+JWT_EXPIRE_MIN = int(os.getenv("JWT_EXPIRE_MIN", "43200"))
 
 # 이메일 인증 코드 관련
 EMAIL_SECRET = os.getenv("EMAIL_SECRET", "dev-email-secret")  # 코드 해시 pepper

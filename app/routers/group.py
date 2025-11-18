@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 # ── 표준 라이브러리
+import json
 import os
 from pathlib import Path
 import shutil
@@ -24,25 +25,33 @@ from sqlalchemy.orm import Session
 # ── 로컬 모듈
 from app.database import get_db
 from app.deps.auth import current_user
+from app.models.board_registry import BoardRegistry
 from app.models.group import Group
 from app.models.group_member import GroupMember, GroupRole
 from app.models.user import User
 from app.schemas.group import (
+    GroupMemberOut,
     GroupResponse,
     GroupInfoOut,
     GroupCreate,
     IdentityMode,
     GroupDetailOut,
 )
+from app.schemas.invite import InviteRedeemIn
 from app.services import group_service
 from app.services.group_service import create_group
 
 import traceback
 
+from app.services.invite_service import PURPOSE_GROUP_JOIN, redeem_invite
+
 # ────────────────────────────────────────────────────────────────────────────────
 # 라우터 설정
 # ────────────────────────────────────────────────────────────────────────────────
 router = APIRouter(prefix="/groups", tags=["Group"])
+
+RHYMIX_BASE_URL = os.getenv("RHYMIX_BASE_URL")
+
 
 # ✅ 절대 경로 기준으로 변경 (항상 app/static/group_images 안에 저장되도록)
 BASE_DIR = Path(__file__).resolve().parent.parent  # app/
@@ -259,3 +268,126 @@ def leave_group(
 
     db.commit()
     return  # 204 No Content
+
+# 빌드 ... 그룹 디테일? 몰라
+def build_group_detail(db: Session, group: Group) -> GroupDetailOut:
+    """
+    Group ORM 객체를 GroupDetailOut Pydantic 스키마로 변환.
+    - group: GroupInfoOut
+    - members: List[GroupMemberOut]
+    - boardUrl / boardMid: Rhymix 연동 정보 (있으면 채워줌)
+    """
+
+    # 1) 그룹 기본 정보
+    group_info = GroupInfoOut.model_validate(group)
+
+    # 2) 멤버 목록 조회 (가입 순으로 정렬)
+    member_rows = (
+        db.query(GroupMember)
+        .filter(GroupMember.group_id == group.id)
+        .order_by(GroupMember.joined_at.asc())
+        .all()
+    )
+    members_out = [GroupMemberOut.model_validate(m) for m in member_rows]
+
+    # 3) 보드 매핑 정보 (없으면 None)
+    board_mid = None
+    board_url = None
+
+    # Group 모델에 board_mapping / board_registry 중 실제로 쓰는 이름에 맞춰서 사용
+    mapping = getattr(group, "board_mapping", None) or getattr(
+        group, "board_registry", None
+    )
+    if mapping and isinstance(mapping, BoardRegistry):
+        board_mid = mapping.mid
+        if RHYMIX_BASE_URL and board_mid:
+            board_url = f"{RHYMIX_BASE_URL}/{board_mid}"
+
+    # 4) 최종 Pydantic 객체 생성
+    return GroupDetailOut(
+        group=group_info,
+        members=members_out,
+        boardUrl=board_url,
+        boardMid=board_mid,
+    )
+
+
+@router.post("/join-by-invite", response_model=GroupDetailOut)
+def join_by_invite(
+    body: InviteRedeemIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+):
+    print("🔎 join-by-invite 요청 code:", body.code)
+
+    # 1) 초대 코드 사용(redeem) + 검증
+    ok, reason, invite_row = redeem_invite(db, body.code)
+    print("✅ redeem_invite 결과:", ok, reason)
+
+    if not ok:
+        # reason: NOT_FOUND / REVOKED / EXPIRED / EXHAUSTED ...
+        raise HTTPException(status_code=400, detail=reason)
+
+    print("✅ invite_row.purpose =", invite_row.purpose)
+
+    # 2) 목적이 group_join인지 확인 (대소문자 섞여도 안전하게)
+    if (invite_row.purpose or "").lower() != PURPOSE_GROUP_JOIN:
+        print("❌ INVALID_PURPOSE:", invite_row.purpose)
+        raise HTTPException(status_code=400, detail="INVALID_PURPOSE")
+
+    # 3) payload에서 groupId 추출
+    try:
+        payload = json.loads(invite_row.payload) if invite_row.payload else None
+        print("✅ payload =", payload)
+    except json.JSONDecodeError:
+        print("❌ BAD_PAYLOAD: JSONDecodeError")
+        raise HTTPException(status_code=400, detail="BAD_PAYLOAD")
+
+    if not payload:
+        print("❌ BAD_PAYLOAD: empty")
+        raise HTTPException(status_code=400, detail="BAD_PAYLOAD")
+
+    group_id = payload.get("groupId") or payload.get("group_id")
+    print("✅ group_id from payload =", group_id)
+
+    if not group_id:
+        print("❌ GROUP_ID_MISSING")
+        raise HTTPException(status_code=400, detail="GROUP_ID_MISSING")
+
+    # 4) 그룹 존재 여부 확인
+    group = db.get(Group, group_id)
+    print("✅ group fetch result =", group)
+
+    if not group:
+        print("❌ GROUP_NOT_FOUND")
+        raise HTTPException(status_code=404, detail="GROUP_NOT_FOUND")
+
+    # 5) 이미 멤버인지 확인
+    existing_member = (
+        db.query(GroupMember)
+        .filter(
+            GroupMember.group_id == group_id,
+            GroupMember.user_id == user.id,
+        )
+        .first()
+    )
+    print("✅ existing_member =", existing_member)
+
+    if not existing_member:
+        print("✅ 새 멤버 추가 시도")
+        member = GroupMember(
+            group_id=group_id,
+            user_id=user.id,
+            role=GroupRole.MEMBER,
+        )
+        db.add(member)
+        db.commit()
+        print("✅ commit 성공")
+        db.refresh(group)
+    else:
+        print("ℹ️ 이미 그룹 멤버입니다.")
+
+    # 6) 최종 응답: GroupDetailOut으로 변환해서 리턴
+    detail = build_group_detail(db, group)
+    print("✅ GroupDetailOut 생성 완료")
+    return detail
