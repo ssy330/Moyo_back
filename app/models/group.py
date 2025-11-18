@@ -9,9 +9,14 @@ from sqlalchemy import (
     Boolean,
     Enum as SAEnum,
     ForeignKey,
+    func,
+    select,
 )
 from sqlalchemy.orm import relationship
 from app.database import Base
+from sqlalchemy.orm import column_property
+
+from app.models.group_member import GroupMember
 
 
 # ────────────────────────────────────────────────
@@ -90,3 +95,10 @@ class Group(Base):
 
     # 예: 그룹 게시판이나 포스트 등 추가될 수 있는 관계
     # posts = relationship("Post", back_populates="group")
+    # 🔥 여기 추가: 멤버 수 계산용 컬럼
+    member_count = column_property(
+        select(func.count(GroupMember.id))
+        .where(GroupMember.group_id == id)
+        .correlate_except(GroupMember)
+        .scalar_subquery()
+    )

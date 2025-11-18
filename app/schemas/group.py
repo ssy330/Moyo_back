@@ -35,6 +35,7 @@ class GroupResponse(BaseModel):
     creator_id: int
     created_at: datetime
     updated_at: datetime
+    member_count: int
 
     class Config:
         from_attributes = True  # (Pydantic v2) orm_mode 대체
@@ -53,6 +54,7 @@ class GroupInfoOut(BaseModel):
     creator_id: int
     created_at: datetime
     updated_at: datetime
+    member_count: int
     model_config = ConfigDict(from_attributes=True)
 
 class GroupMemberOut(BaseModel):

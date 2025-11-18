@@ -1,5 +1,6 @@
 # app/models/message.py
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, func
+from datetime import datetime, timezone  # ✅ 이렇게 바꿈!
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -10,7 +11,12 @@ class Message(Base):
     room_id = Column(Integer, ForeignKey("chat_rooms.id", ondelete="CASCADE"))
     user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
     content = Column(String, nullable=False)
-    created_at = Column(DateTime, server_default=func.now())
+
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),  # ✅ 이제 정상
+    )
 
     room = relationship("ChatRoom", back_populates="messages")
     user = relationship("User")

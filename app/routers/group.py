@@ -269,17 +269,11 @@ def leave_group(
     db.commit()
     return  # 204 No Content
 
-# 빌드 ... 그룹 디테일? 몰라
+# 그룹 디테일 함수
 def build_group_detail(db: Session, group: Group) -> GroupDetailOut:
     """
     Group ORM 객체를 GroupDetailOut Pydantic 스키마로 변환.
-    - group: GroupInfoOut
-    - members: List[GroupMemberOut]
-    - boardUrl / boardMid: Rhymix 연동 정보 (있으면 채워줌)
     """
-
-    # 1) 그룹 기본 정보
-    group_info = GroupInfoOut.model_validate(group)
 
     # 2) 멤버 목록 조회 (가입 순으로 정렬)
     member_rows = (
@@ -289,12 +283,30 @@ def build_group_detail(db: Session, group: Group) -> GroupDetailOut:
         .all()
     )
     members_out = [GroupMemberOut.model_validate(m) for m in member_rows]
+    member_count = len(member_rows)
 
-    # 3) 보드 매핑 정보 (없으면 None)
+    # 1) 그룹 기본 정보 + 멤버 수 포함
+    group_info = GroupInfoOut(
+        id=group.id,
+        name=group.name,
+        description=group.description,
+        image_url=group.image_url,
+        requires_approval=group.requires_approval,
+        identity_mode=(
+            group.identity_mode
+            if isinstance(group.identity_mode, IdentityMode)
+            else IdentityMode(str(group.identity_mode).split(".")[-1])
+        ),
+        creator_id=group.creator_id,
+        created_at=group.created_at,
+        updated_at=group.updated_at,
+        member_count=member_count,   # 🔥 여기!
+    )
+
+    # 3) 보드 매핑 정보
     board_mid = None
     board_url = None
 
-    # Group 모델에 board_mapping / board_registry 중 실제로 쓰는 이름에 맞춰서 사용
     mapping = getattr(group, "board_mapping", None) or getattr(
         group, "board_registry", None
     )
