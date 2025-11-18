@@ -13,6 +13,10 @@ from app.routers import invites as invites_router
 from app.routers import group as groups_router
 from app.routers import boards
 
+from app.routers import rooms, messages  # etc...
+from app.websocket import endpoints as ws_endpoints
+
+
 # ─────────────────────────────
 # 1) DB 초기화
 Base.metadata.create_all(bind=engine)
@@ -50,12 +54,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 # 4) 라우터 연결
 app.include_router(auth_router.router, prefix="/api/v1")
 app.include_router(invites_router.router, prefix="/api/v1")
 app.include_router(groups_router.router, prefix="/api/v1")
 app.include_router(boards.router)
+
+# 채팅 라우터
+app.include_router(rooms.router)
+app.include_router(messages.router)
+app.include_router(ws_endpoints.router)  # 🔥 이거 꼭 있어야 WebSocket 경로가 등록됨
 
 # 5) 헬스체크
 @app.get("/", tags=["system"])

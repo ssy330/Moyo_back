@@ -10,7 +10,6 @@ class UserLogin(BaseModel):
     email: EmailStr
     password: str
 
-# 🔥 프론트에서 쓸 유저 정보 응답용
 class UserOut(BaseModel):
     id: int
     email: EmailStr
