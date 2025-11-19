@@ -15,6 +15,7 @@ from app.routers import boards
 
 from app.routers import rooms, messages  # etc...
 from app.websocket import endpoints as ws_endpoints
+from app.routers import calendar as calendar_router
 
 
 # ─────────────────────────────
@@ -59,6 +60,7 @@ app.include_router(auth_router.router, prefix="/api/v1")
 app.include_router(invites_router.router, prefix="/api/v1")
 app.include_router(groups_router.router, prefix="/api/v1")
 app.include_router(boards.router)
+app.include_router(calendar_router.router, prefix="/api/v1")
 
 # 채팅 라우터
 app.include_router(rooms.router)
