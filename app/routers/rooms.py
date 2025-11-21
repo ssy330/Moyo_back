@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.group import Group
+from app.models.group_member import GroupMember
 from app.models.room import ChatRoom, RoomMember
 from app.models.user import User
 from app.deps.auth import current_user
@@ -54,7 +55,7 @@ def join_room(
         db.commit()
 
 
-# ✅✅ 그룹 전용 채팅방: group_id 기준으로 1개 자동 생성/조회
+# 그룹 전용 채팅방: group_id 기준으로 1개 자동 생성/조회
 @router.post("/by-group/{group_id}", response_model=RoomOut)
 def get_or_create_group_room(
     group_id: int,
@@ -79,3 +80,22 @@ def get_or_create_group_room(
     db.commit()
     db.refresh(room)
     return room
+
+# 내가 속해있는 그룹
+@router.get("/my-group", response_model=list[RoomOut])
+def list_my_group_rooms(
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+):
+    """
+    - GroupMember 기준으로 내가 속해 있는 그룹 찾고
+    - 그 그룹들에 연결된 ChatRoom(group_id)만 가져옴
+    """
+    rooms = (
+        db.query(ChatRoom)
+        .join(Group, Group.id == ChatRoom.group_id)
+        .join(GroupMember, GroupMember.group_id == Group.id)
+        .filter(GroupMember.user_id == user.id)
+        .all()
+    )
+    return rooms
