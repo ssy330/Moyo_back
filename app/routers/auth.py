@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from app.database import get_db
-from app.schemas.user import UserCreate, UserLogin, SignupOut, LoginOut, EmailRequest, EmailConfirm
+from app.schemas.user import NicknameUpdate, UserCreate, UserLogin, SignupOut, LoginOut, EmailRequest, EmailConfirm
 from app.services.auth_service import create_user, authenticate_user
 from app.utils.security import create_access_token
 from app.services.auth_service import request_email_code, confirm_email_code, ensure_recent_verified
@@ -122,3 +122,40 @@ def me(
         raise HTTPException(status_code=401, detail="User not found")
 
     return {"id": user.id, "email": user.email, "name": user.name, "nickname":user.nickname, "is_active": user.is_active}
+
+@router.patch("/me/nickname")
+def update_nickname(
+    body: NicknameUpdate,
+    creds: HTTPAuthorizationCredentials = Depends(bearer),
+    db: Session = Depends(get_db),
+):
+    # 토큰 체크
+    if creds is None or creds.scheme.lower() != "bearer":
+        raise HTTPException(status_code=401, detail="Missing or invalid token")
+
+    try:
+        payload = decode_access_token(creds.credentials)
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    email = payload.get("sub")
+    if not email:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user = db.execute(select(User).where(User.email == email)).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # 닉네임 수정
+    user.nickname = body.nickname
+    db.commit()
+    db.refresh(user)
+
+    # /auth/me랑 같은 형태로 돌려주기
+    return {
+        "id": user.id,
+        "email": user.email,
+        "name": user.name,
+        "nickname": user.nickname,
+        "is_active": user.is_active,
+    }

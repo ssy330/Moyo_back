@@ -28,6 +28,8 @@ from app.deps.auth import current_user
 from app.models.board_registry import BoardRegistry
 from app.models.group import Group
 from app.models.group_member import GroupMember, GroupRole
+from app.models.message import Message
+from app.models.room import ChatRoom, RoomMember
 from app.models.user import User
 from app.schemas.group import (
     GroupMemberOut,
@@ -204,7 +206,7 @@ def list_my_groups(
         for g, mcount in rows
     ]
 
-
+# 그룹 디테일
 @router.get("/{group_id}", response_model=GroupDetailOut)
 def get_group_detail(group_id: int, db: Session = Depends(get_db)):
     g = group_service.get_group_with_relations(db, group_id)
@@ -227,27 +229,62 @@ def leave_group(
             GroupMember.user_id == user.id,
         )
     )
-    # 방장
     gm = db.scalars(stmt).first()
 
     if not gm:
         raise HTTPException(status_code=404, detail="해당 그룹에 가입되어 있지 않습니다.")
 
+    # 🔹 이 그룹에 연결된 채팅방(있다면)
+    chat_room = db.scalars(
+        select(ChatRoom).where(ChatRoom.group_id == group_id)
+    ).first()
+
+    # ─────────────────────────────────────
+    # 🔹 유저를 채팅방에서 제거하는 헬퍼
+    # ─────────────────────────────────────
+    def remove_from_chat_room():
+        nonlocal chat_room
+        if not chat_room:
+            return
+        rm = db.scalars(
+            select(RoomMember).where(
+                RoomMember.room_id == chat_room.id,
+                RoomMember.user_id == user.id,
+            )
+        ).first()
+        if rm:
+            db.delete(rm)
+
+    # ─────────────────────────────────────
+    # 🔹 유저가 이 방에서 남긴 메시지 삭제
+    # ─────────────────────────────────────
+    def remove_user_messages():
+        nonlocal chat_room
+        if not chat_room:
+            return
+        # 이 방 + 이 유저가 쓴 모든 메시지 삭제
+        db.query(Message).filter(
+            Message.room_id == chat_room.id,
+            Message.user_id == user.id,
+        ).delete(synchronize_session=False)
+
     # 1) 방장이 아닌 경우 → 그냥 탈퇴
     if gm.role != GroupRole.OWNER:
+        remove_from_chat_room()
+        remove_user_messages()
+
         db.delete(gm)
         db.commit()
         return  # 204 No Content
 
     # 2) 방장인 경우 → 다른 멤버가 있는지 확인
-    #    나를 제외한 다른 멤버 중 한 명을 새 OWNER로 선택
     next_owner_stmt = (
         select(GroupMember)
         .where(
             GroupMember.group_id == group_id,
             GroupMember.id != gm.id,
         )
-        .order_by(GroupMember.id.asc())  # 가장 먼저 가입한(추정) 사람
+        .order_by(GroupMember.id.asc())
         .limit(1)
     )
     next_owner = db.scalars(next_owner_stmt).first()
@@ -255,16 +292,43 @@ def leave_group(
     if next_owner:
         # 2-1) 다른 멤버가 있으면 → OWNER 위임 후 나는 탈퇴
         next_owner.role = GroupRole.OWNER
+
+        remove_from_chat_room()
+        remove_user_messages()
+
         db.delete(gm)
         db.commit()
         return
 
     # 2-2) 다른 멤버가 없으면 → 그냥 탈퇴 + 그룹 해산
+    #    이 경우엔 어차피 Group 삭제 → ondelete="CASCADE"로 ChatRoom/Message 다 같이 삭제됨
+    remove_from_chat_room()
+    remove_user_messages()  # 사실 이 경우는 안 해도 되지만, 안전하게 넣어도 무방
+
     db.delete(gm)
 
     group = db.get(Group, group_id)
     if group:
         db.delete(group)
+
+        # (선택) 안전하게 ChatRoom도 직접 삭제
+        if chat_room:
+            db.delete(chat_room)
+
+    db.commit()
+    return  # 204 No Content
+
+    # 2-2) 다른 멤버가 없으면 → 그냥 탈퇴 + 그룹 해산
+    #     이 때 Group 삭제 → ondelete="CASCADE"로 ChatRoom / RoomMember / Message 같이 삭제됨
+    db.delete(gm)
+
+    group = db.get(Group, group_id)
+    if group:
+        db.delete(group)
+
+        # (선택) 안전하게 ChatRoom도 직접 삭제하고 싶으면 아래도 추가 가능
+        if chat_room:
+            db.delete(chat_room)
 
     db.commit()
     return  # 204 No Content
@@ -323,7 +387,7 @@ def build_group_detail(db: Session, group: Group) -> GroupDetailOut:
         boardMid=board_mid,
     )
 
-
+# 초대 코드로 그룹 참여.
 @router.post("/join-by-invite", response_model=GroupDetailOut)
 def join_by_invite(
     body: InviteRedeemIn,

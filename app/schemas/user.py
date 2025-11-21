@@ -1,4 +1,6 @@
-from pydantic import BaseModel, ConfigDict, EmailStr
+from typing import Annotated
+from pydantic import BaseModel, ConfigDict, EmailStr, StringConstraints, constr
+ 
 
 class UserCreate(BaseModel):
     email: EmailStr
@@ -34,3 +36,8 @@ class EmailRequest(BaseModel):
 class EmailConfirm(BaseModel):
     email: EmailStr
     code: str
+
+NicknameStr = Annotated[str, StringConstraints(min_length=1, max_length=30)]
+
+class NicknameUpdate(BaseModel):
+    nickname: NicknameStr
