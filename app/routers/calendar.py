@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -17,8 +17,8 @@ router = APIRouter(
 
 @router.get("/events", response_model=List[EventOut])
 def list_events(
-    from_: datetime,
-    to: datetime,
+    from_: datetime = Query(..., alias="from"),   # ← 수정
+    to: datetime = Query(...),  # ← 타입 명시 + Query 사용
     db: Session = Depends(get_db),
     current_user=Depends(current_user),
 ):
