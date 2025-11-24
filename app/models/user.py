@@ -12,6 +12,9 @@ class User(Base):
     hashed_password = Column(String(255), nullable=False) 
     is_active = Column(Boolean, nullable=False, server_default="1")
     
+     # ✅ 프로필 이미지 URL (예: "/static/profile/xxx.png")
+    profile_image_url = Column(String(255), nullable=True)
+    
     # ✓ 역참조
     groups_created = relationship("Group", back_populates="creator")
     group_memberships = relationship("GroupMember", back_populates="user", cascade="all, delete-orphan")

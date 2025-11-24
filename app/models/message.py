@@ -15,7 +15,7 @@ class Message(Base):
     created_at = Column(
         DateTime(timezone=True),
         nullable=False,
-        default=lambda: datetime.now(timezone.utc),  # ✅ 이제 정상
+        default=lambda: datetime.now(timezone.utc),
     )
 
     room = relationship("ChatRoom", back_populates="messages")

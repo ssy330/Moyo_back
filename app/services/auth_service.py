@@ -19,6 +19,7 @@ def create_user(db: Session, data: UserCreate) -> User:
         name=data.name,
         nickname=data.nickname,   
         hashed_password=hash_password(data.password),
+        profile_image_url=data.profile_image_url,
     )
     db.add(user)
     db.commit()

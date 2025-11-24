@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from app.database import get_db
 from app.schemas.user import NicknameUpdate, UserCreate, UserLogin, SignupOut, LoginOut, EmailRequest, EmailConfirm
 from app.services.auth_service import create_user, authenticate_user
+from app.utils.file_utils import save_profile_image
 from app.utils.security import create_access_token
 from app.services.auth_service import request_email_code, confirm_email_code, ensure_recent_verified
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -38,27 +39,51 @@ def email_confirm(body: EmailConfirm, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/signup", response_model=SignupOut, status_code=201)
-def signup(body: UserCreate, db: Session = Depends(get_db)):
+async def signup(
+    # ✅ JSON 대신 multipart/form-data 로 받기
+    email: str = Form(...),
+    name: str = Form(...),
+    nickname: str = Form(...),
+    password: str = Form(...),
+    profile_image: UploadFile | None = File(None),
+    db: Session = Depends(get_db),
+):
     try:
         # 최근 이메일 인증 성공 이력 확인 (30분이내)
         try:
-            ensure_recent_verified(db, body.email, within_minutes=30)
+            ensure_recent_verified(db, email, within_minutes=30)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=f"Email not verified: {e}")
+
+        # ✅ 이미지 저장
+        profile_image_url: str | None = None
+        if profile_image is not None:
+            profile_image_url = await save_profile_image(profile_image)
+
+        # ✅ 원래 쓰던 UserCreate 객체 직접 생성
+        body = UserCreate(
+            email=email,
+            name=name,
+            nickname=nickname,
+            password=password,
+            profile_image_url=profile_image_url,
+        )
+
+        # 기존 로직 재사용
         user = create_user(db, body)
-         # ⬇ 로그인 때 쓰던 토큰 생성 로직 재사용
+
         access_token = create_access_token({"sub": user.email})
 
-        # ⬇ 프론트가 기대하는 형태로 응답
         return {
             "access_token": access_token,
             "user": user,
         }
+
     except IntegrityError:
         db.rollback()
-        # FIX: 중복 이메일은 409가 표준 (400 -> 409로 수정)
         raise HTTPException(status_code=409, detail="Email already registered")
 
+# 로그인
 @router.post("/login", response_model=LoginOut)
 def login(body: UserLogin, db: Session = Depends(get_db)):
     user = authenticate_user(db, body.email, body.password)
@@ -101,7 +126,7 @@ def delete_account(
     db.commit()
     return
 
-# [신규] 보호 라우트: 현재 로그인 사용자 정보
+# 보호 라우트: 현재 로그인 사용자 정보
 @router.get("/me")
 def me(
     creds: HTTPAuthorizationCredentials = Depends(bearer),
@@ -121,8 +146,9 @@ def me(
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
 
-    return {"id": user.id, "email": user.email, "name": user.name, "nickname":user.nickname, "is_active": user.is_active}
+    return {"id": user.id, "email": user.email, "name": user.name, "nickname":user.nickname, "is_active": user.is_active, "profile_image_url": user.profile_image_url}
 
+# 닉네임 변경
 @router.patch("/me/nickname")
 def update_nickname(
     body: NicknameUpdate,

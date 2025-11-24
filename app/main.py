@@ -34,10 +34,13 @@ app = FastAPI(
 # 🔧 static 경로 설정
 BASE_DIR = Path(__file__).resolve().parent          # C:\dev\moyo_back\app
 STATIC_DIR = BASE_DIR / "static"                    # C:\dev\moyo_back\app\static
-UPLOAD_DIR = STATIC_DIR / "group_images"  
+GROUP_UPLOAD_DIR = STATIC_DIR / "group_images"  
+PROFILE_DIR = STATIC_DIR / "profile"
 
 # ✅ 폴더 없으면 생성 (여기가 중요)
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+GROUP_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+PROFILE_DIR.mkdir(parents=True, exist_ok=True)
+
 
 # ✅ 그 다음 마운트
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")

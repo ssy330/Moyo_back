@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Optional
 from pydantic import BaseModel, ConfigDict, EmailStr, StringConstraints, constr
  
 
@@ -7,6 +7,7 @@ class UserCreate(BaseModel):
     name: str
     nickname:str
     password: str
+    profile_image_url: Optional[str] = None
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -17,6 +18,7 @@ class UserOut(BaseModel):
     email: EmailStr
     name: str
     nickname: str
+    profile_image_url: Optional[str] = None
 
     class Config:
         from_attributes = True  # SQLAlchemy 모델 -> Pydantic 변환 허용
