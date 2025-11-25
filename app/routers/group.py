@@ -19,8 +19,9 @@ from fastapi import (
     UploadFile,
     HTTPException,
 )
+
 from sqlalchemy import select, func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 # ── 로컬 모듈
 from app.database import get_db
@@ -209,10 +210,21 @@ def list_my_groups(
 # 그룹 디테일
 @router.get("/{group_id}", response_model=GroupDetailOut)
 def get_group_detail(group_id: int, db: Session = Depends(get_db)):
-    g = group_service.get_group_with_relations(db, group_id)
+    # Group + members + member.user + board_mapping까지 한 번에 로딩
+    g = (
+        db.query(Group)
+        .options(
+            joinedload(Group.members).joinedload(GroupMember.user),
+            joinedload(Group.board_mapping),
+        )
+        .filter(Group.id == group_id)
+        .first()
+    )
+
     if not g:
         raise HTTPException(status_code=404, detail="Group not found")
-    return group_service.to_group_out(db, g)
+
+    return build_group_detail(db, g)
 
 # 그룹 탈퇴
 @router.delete("/{group_id}/leave", status_code=status.HTTP_204_NO_CONTENT)
@@ -318,20 +330,6 @@ def leave_group(
     db.commit()
     return  # 204 No Content
 
-    # 2-2) 다른 멤버가 없으면 → 그냥 탈퇴 + 그룹 해산
-    #     이 때 Group 삭제 → ondelete="CASCADE"로 ChatRoom / RoomMember / Message 같이 삭제됨
-    db.delete(gm)
-
-    group = db.get(Group, group_id)
-    if group:
-        db.delete(group)
-
-        # (선택) 안전하게 ChatRoom도 직접 삭제하고 싶으면 아래도 추가 가능
-        if chat_room:
-            db.delete(chat_room)
-
-    db.commit()
-    return  # 204 No Content
 
 # 그룹 디테일 함수
 def build_group_detail(db: Session, group: Group) -> GroupDetailOut:
@@ -340,11 +338,9 @@ def build_group_detail(db: Session, group: Group) -> GroupDetailOut:
     """
 
     # 2) 멤버 목록 조회 (가입 순으로 정렬)
-    member_rows = (
-        db.query(GroupMember)
-        .filter(GroupMember.group_id == group.id)
-        .order_by(GroupMember.joined_at.asc())
-        .all()
+    member_rows = sorted(
+        group.members,
+        key=lambda m: (m.joined_at or m.id)
     )
     members_out = [GroupMemberOut.model_validate(m) for m in member_rows]
     member_count = len(member_rows)
@@ -467,3 +463,5 @@ def join_by_invite(
     detail = build_group_detail(db, group)
     print("✅ GroupDetailOut 생성 완료")
     return detail
+
+

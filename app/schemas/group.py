@@ -1,14 +1,16 @@
-# app/schemas/group.py
 from __future__ import annotations
 from datetime import datetime
 from enum import Enum
-from pydantic import BaseModel, HttpUrl, field_validator, ConfigDict
 from typing import Optional, List
-#from .enums import IdentityMode
+from pydantic import BaseModel, field_validator, ConfigDict
+
+from app.models.group_member import GroupRole  # 🔥 Enum 그대로 사용
+
 
 class IdentityMode(str, Enum):
     REALNAME = "REALNAME"
     NICKNAME = "NICKNAME"
+
 
 class GroupCreate(BaseModel):
     name: str
@@ -25,6 +27,7 @@ class GroupCreate(BaseModel):
             raise ValueError("개인정보 수집 및 이용에 동의해야 합니다.")
         return v
 
+
 class GroupResponse(BaseModel):
     id: int
     name: str
@@ -38,12 +41,15 @@ class GroupResponse(BaseModel):
     member_count: int
 
     class Config:
-        from_attributes = True  # (Pydantic v2) orm_mode 대체
+        from_attributes = True
         json_encoders = {
             IdentityMode: lambda v: v.value if hasattr(v, "value") else str(v),
-         }
+        }
 
-# [추가]
+
+# ─────────────────────────────
+# 그룹 기본 정보 (디테일/목록 공용)
+# ─────────────────────────────
 class GroupInfoOut(BaseModel):
     id: int
     name: str
@@ -55,22 +61,44 @@ class GroupInfoOut(BaseModel):
     created_at: datetime
     updated_at: datetime
     member_count: int
+
     model_config = ConfigDict(from_attributes=True)
 
+
+# ─────────────────────────────
+# 멤버가 참조하는 유저 정보
+# ─────────────────────────────
+class GroupMemberUserOut(BaseModel):
+    id: int
+    name: Optional[str] = None
+    nickname: Optional[str] = None
+    profile_image_url: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ─────────────────────────────
+# 멤버 정보 + 유저 정보
+# ─────────────────────────────
 class GroupMemberOut(BaseModel):
+    id: int
+    group_id: int
     user_id: int
-    role: str
+    role: GroupRole             # "OWNER" | "MANAGER" | "MEMBER"
     joined_at: datetime
+    updated_at: datetime
+    user: Optional[GroupMemberUserOut] = None  # 🔥 여기!
 
     model_config = ConfigDict(from_attributes=True)
 
+
+# ─────────────────────────────
+# 그룹 디테일 응답
+# ─────────────────────────────
 class GroupDetailOut(BaseModel):
     group: GroupInfoOut
-    members: List[GroupMemberOut]
-    
-    # ✅ 보드 연동 정보(없을 수도 있으니 Optional)
+    members: List[GroupMemberOut]       # 🔥 다시 GroupMemberOut 목록으로!
     boardUrl: Optional[str] = None
     boardMid: Optional[str] = None
-    
-    model_config = ConfigDict(from_attributes=True)
 
+    model_config = ConfigDict(from_attributes=True)
