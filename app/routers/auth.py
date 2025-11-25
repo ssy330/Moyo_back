@@ -184,4 +184,44 @@ def update_nickname(
         "name": user.name,
         "nickname": user.nickname,
         "is_active": user.is_active,
+        "profile_image_url": user.profile_image_url,
+    }
+    
+@router.patch("/me/profile-image")
+async def update_profile_image(
+    profile_image: UploadFile = File(...),
+    creds: HTTPAuthorizationCredentials = Depends(bearer),
+    db: Session = Depends(get_db),
+):
+    # 토큰 체크
+    if creds is None or creds.scheme.lower() != "bearer":
+      raise HTTPException(status_code=401, detail="Missing or invalid token")
+
+    try:
+      payload = decode_access_token(creds.credentials)
+    except Exception:
+      raise HTTPException(status_code=401, detail="Invalid token")
+
+    email = payload.get("sub")
+    if not email:
+      raise HTTPException(status_code=401, detail="Invalid token")
+
+    user = db.execute(select(User).where(User.email == email)).scalar_one_or_none()
+    if not user:
+      raise HTTPException(status_code=404, detail="User not found")
+
+    # 새 이미지 저장
+    profile_image_url = await save_profile_image(profile_image)
+    user.profile_image_url = profile_image_url
+    db.commit()
+    db.refresh(user)
+
+    # /auth/me와 형태 맞춰서 리턴 (profile_image_url 포함!)
+    return {
+        "id": user.id,
+        "email": user.email,
+        "name": user.name,
+        "nickname": user.nickname,
+        "is_active": user.is_active,
+        "profile_image_url": user.profile_image_url,
     }
