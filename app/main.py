@@ -8,7 +8,7 @@ from starlette.staticfiles import StaticFiles
 
 from app.database import Base, engine, get_db
 from app import models
-from app.routers import auth as auth_router
+from app.routers import auth as auth_router, friend
 from app.routers import invites as invites_router
 from app.routers import group as groups_router
 from app.routers import boards
@@ -64,6 +64,7 @@ app.include_router(invites_router.router, prefix="/api/v1")
 app.include_router(groups_router.router, prefix="/api/v1")
 app.include_router(boards.router)
 app.include_router(calendar_router.router, prefix="/api/v1")
+app.include_router(friend.router, prefix="/api/v1") 
 
 # 채팅 라우터
 app.include_router(rooms.router)

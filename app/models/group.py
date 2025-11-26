@@ -72,6 +72,13 @@ class Group(Base):
         passive_deletes=True,
     )
     
+    friend_requests = relationship(
+        "FriendRequest",
+        back_populates="group",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    
     # 개인정보 처리방침 동의 여부(감사 추적용)
     privacy_consent = Column(Boolean, nullable=False, default=True)
 

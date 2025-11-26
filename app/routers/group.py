@@ -390,48 +390,35 @@ def join_by_invite(
     db: Session = Depends(get_db),
     user: User = Depends(current_user),
 ):
-    print("🔎 join-by-invite 요청 code:", body.code)
 
     # 1) 초대 코드 사용(redeem) + 검증
     ok, reason, invite_row = redeem_invite(db, body.code)
-    print("✅ redeem_invite 결과:", ok, reason)
 
     if not ok:
-        # reason: NOT_FOUND / REVOKED / EXPIRED / EXHAUSTED ...
         raise HTTPException(status_code=400, detail=reason)
-
-    print("✅ invite_row.purpose =", invite_row.purpose)
 
     # 2) 목적이 group_join인지 확인 (대소문자 섞여도 안전하게)
     if (invite_row.purpose or "").lower() != PURPOSE_GROUP_JOIN:
-        print("❌ INVALID_PURPOSE:", invite_row.purpose)
         raise HTTPException(status_code=400, detail="INVALID_PURPOSE")
 
     # 3) payload에서 groupId 추출
     try:
         payload = json.loads(invite_row.payload) if invite_row.payload else None
-        print("✅ payload =", payload)
     except json.JSONDecodeError:
-        print("❌ BAD_PAYLOAD: JSONDecodeError")
         raise HTTPException(status_code=400, detail="BAD_PAYLOAD")
 
     if not payload:
-        print("❌ BAD_PAYLOAD: empty")
         raise HTTPException(status_code=400, detail="BAD_PAYLOAD")
 
     group_id = payload.get("groupId") or payload.get("group_id")
-    print("✅ group_id from payload =", group_id)
 
     if not group_id:
-        print("❌ GROUP_ID_MISSING")
         raise HTTPException(status_code=400, detail="GROUP_ID_MISSING")
 
     # 4) 그룹 존재 여부 확인
     group = db.get(Group, group_id)
-    print("✅ group fetch result =", group)
 
     if not group:
-        print("❌ GROUP_NOT_FOUND")
         raise HTTPException(status_code=404, detail="GROUP_NOT_FOUND")
 
     # 5) 이미 멤버인지 확인
