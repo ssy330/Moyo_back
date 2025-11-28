@@ -23,3 +23,13 @@ class FriendRequestOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+# 🔥 친구 목록용 응답
+class FriendOut(BaseModel):
+    id: int                      # friend_request id 그대로 써도 됨
+    created_at: datetime         # 친구가 된 시점 (요청 생성/수락 시점)
+    friend: UserOut              # "상대방" 유저
+    group: Optional[GroupInfoOut] = None  # 어떤 그룹에서 연결됐는지 (있다면)
+
+    class Config:
+        arbitrary_types_allowed = True

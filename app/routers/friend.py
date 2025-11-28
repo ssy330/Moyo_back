@@ -7,7 +7,7 @@ from app.deps.auth import current_user as get_current_user
 from app.database import get_db
 from app.models.user import User
 from app.models.friend_request import FriendRequest
-from app.schemas.friend import FriendRequestCreate, FriendRequestOut
+from app.schemas.friend import FriendOut, FriendRequestCreate, FriendRequestOut
 
 
 router = APIRouter(
@@ -133,3 +133,65 @@ def reject_friend_request(
     db.commit()
     db.refresh(fr)
     return fr
+
+# 친구 목록 리스트
+@router.get("/friends", response_model=list[FriendOut])
+def list_my_friends(
+    db: Session = Depends(get_db),
+    me: User = Depends(get_current_user),
+):
+    # 내가 요청자였던 경우 (A → B, ACCEPTED)
+    sent = (
+        db.query(FriendRequest)
+        .options(
+            joinedload(FriendRequest.receiver),
+            joinedload(FriendRequest.group),
+        )
+        .filter(
+            FriendRequest.requester_id == me.id,
+            FriendRequest.status == "ACCEPTED",
+        )
+        .all()
+    )
+
+    # 내가 받은 사람이었던 경우 (B ← A, ACCEPTED)
+    received = (
+        db.query(FriendRequest)
+        .options(
+            joinedload(FriendRequest.requester),
+            joinedload(FriendRequest.group),
+        )
+        .filter(
+            FriendRequest.receiver_id == me.id,
+            FriendRequest.status == "ACCEPTED",
+        )
+        .all()
+    )
+
+    results: list[FriendOut] = []
+
+    # A → B: friend = receiver
+    for fr in sent:
+        friend_user = fr.receiver
+        results.append(
+            FriendOut(
+                id=fr.id,
+                created_at=fr.created_at,
+                friend=friend_user,
+                group=fr.group,
+            )
+        )
+
+    # B ← A: friend = requester
+    for fr in received:
+        friend_user = fr.requester
+        results.append(
+            FriendOut(
+                id=fr.id,
+                created_at=fr.created_at,
+                friend=friend_user,
+                group=fr.group,
+            )
+        )
+
+    return results
