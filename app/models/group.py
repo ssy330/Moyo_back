@@ -1,6 +1,7 @@
 # app/models/group.py
 from datetime import datetime
 from enum import Enum
+
 from sqlalchemy import (
     Column,
     Integer,
@@ -12,10 +13,9 @@ from sqlalchemy import (
     func,
     select,
 )
-from sqlalchemy.orm import relationship
-from app.database import Base
-from sqlalchemy.orm import column_property
+from sqlalchemy.orm import relationship, column_property
 
+from app.database import Base
 from app.models.group_member import GroupMember
 
 
@@ -53,17 +53,21 @@ class Group(Base):
 
     # ── 생성자 정보 ─────────────────────────────────────────────
     creator_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    # 선택: User 모델이 있다면 아래 relationship 유지
-    # creator = relationship("User", back_populates="groups")
 
-    # ✓ 역참조들
-    creator = relationship("User", back_populates="groups_created", lazy="joined")  # 1:N 중 N쪽에서의 참조
+    creator = relationship(
+        "User",
+        back_populates="groups_created",
+        lazy="joined",
+    )
+
+    # ── 멤버십 / 친구 / 보드 매핑 ─────────────────────────────
     members = relationship(
         "GroupMember",
         back_populates="group",
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+
     board_mapping = relationship(
         "BoardRegistry",
         back_populates="group",
@@ -71,25 +75,34 @@ class Group(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
-    
+
     friend_requests = relationship(
         "FriendRequest",
         back_populates="group",
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
-    
+
+    # ✅ 게시글 관계: 이 그룹에 속한 게시글들
+    posts = relationship(
+        "Post",
+        back_populates="group",
+        cascade="all, delete-orphan",
+    )
+
     # 개인정보 처리방침 동의 여부(감사 추적용)
     privacy_consent = Column(Boolean, nullable=False, default=True)
 
     # ── 타임스탬프 ─────────────────────────────────────────────
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        nullable=False,
     )
 
-    # ── 관계 설정 ─────────────────────────────────────────────
-    # ✅ BoardRegistry에서 back_populates="group"을 사용 중이므로 반드시 정의 필요
+    # ── BoardRegistry 역참조 (기존 구조 유지) ────────────────
     board_registry = relationship(
         "BoardRegistry",
         back_populates="group",
@@ -97,12 +110,7 @@ class Group(Base):
         cascade="all, delete-orphan",
     )
 
-    # 예: 그룹 내 멤버 관계가 있다면 추가 가능
-    # members = relationship("GroupMember", back_populates="group", cascade="all, delete-orphan")
-
-    # 예: 그룹 게시판이나 포스트 등 추가될 수 있는 관계
-    # posts = relationship("Post", back_populates="group")
-    # 🔥 여기 추가: 멤버 수 계산용 컬럼
+    # 🔥 멤버 수 계산용 컬럼
     member_count = column_property(
         select(func.count(GroupMember.id))
         .where(GroupMember.group_id == id)

@@ -11,7 +11,7 @@ from app import models
 from app.routers import auth as auth_router, friend
 from app.routers import invites as invites_router
 from app.routers import group as groups_router
-from app.routers import boards
+from app.routers import post as post_router
 
 from app.routers import rooms, messages  # etc...
 from app.websocket import endpoints as ws_endpoints
@@ -62,7 +62,7 @@ app.add_middleware(
 app.include_router(auth_router.router, prefix="/api/v1")
 app.include_router(invites_router.router, prefix="/api/v1")
 app.include_router(groups_router.router, prefix="/api/v1")
-app.include_router(boards.router)
+app.include_router(post_router.router, prefix="/api/v1")
 app.include_router(calendar_router.router, prefix="/api/v1")
 app.include_router(friend.router, prefix="/api/v1") 
 
