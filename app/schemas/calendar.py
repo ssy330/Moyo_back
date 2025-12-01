@@ -8,6 +8,7 @@ class EventBase(BaseModel):
     start_at: datetime
     end_at: datetime
     all_day: bool = False
+    group_id: int | None = None
 
 class EventCreate(EventBase):
     pass

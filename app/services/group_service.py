@@ -64,6 +64,17 @@ def list_group_members(db: Session, group_id: int, limit: int = 50, offset: int 
     ).scalars().all()
     return rows
 
+# 내가 속한 그룹 id 목록만 가져오는 헬퍼
+def get_my_group_ids(db: Session, user_id: int) -> list[int]:
+    """
+    user_id가 속한 그룹들의 id 목록만 돌려주는 유틸 함수
+    """
+    rows = db.execute(
+        select(GroupMember.group_id).where(GroupMember.user_id == user_id)
+    ).all()
+    # rows 는 [(1,), (3,), ...] 이런 형태라서 첫 번째 값만 꺼냄
+    return [gid for (gid,) in rows]
+
 # 응답 변환 : 관계를 그대로 사용
 def to_group_out(db: Session, group: Group) -> GroupDetailOut:
     """SQLAlchemy Group -> GroupDetailOut 변환"""

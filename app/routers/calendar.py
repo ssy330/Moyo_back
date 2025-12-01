@@ -1,14 +1,20 @@
 from datetime import datetime
 from typing import List
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import select, and_, or_
 
 from app.database import get_db
 from app.schemas.calendar import EventOut, EventCreate, EventUpdate
 from app.services import calendar_service
+from app.models import CalendarEvent
+from app.services.group_service import get_my_group_ids
 
 from app.deps.auth import current_user 
+from app.models.user import User
+from app.deps.auth import current_user as get_current_user
 
 router = APIRouter(
     prefix="/calendar",        # 최종 주소: /api/v1/calendar/...
@@ -19,9 +25,44 @@ router = APIRouter(
 def list_events(
     from_: datetime = Query(..., alias="from"),   # ← 수정
     to: datetime = Query(...),  # ← 타입 명시 + Query 사용
+    scope: Literal["all", "personal", "group"] = "all",
+    group_id: int | None = None,
     db: Session = Depends(get_db),
-    current_user=Depends(current_user),
+    current_user: User =Depends(get_current_user),
 ):
+    user_id = current_user.id
+    
+    q = select(CalendarEvent).where(
+        CalendarEvent.start_at < to,
+        CalendarEvent.end_at >= from_,
+    )
+
+    if scope == "personal":
+        q = q.where(
+            CalendarEvent.user_id == user_id,
+            CalendarEvent.group_id.is_(None),
+        )
+
+    elif scope == "group":
+        if group_id is None:
+            raise HTTPException(400, "group_id is required when scope=group")
+        # (여기서 user가 해당 group 멤버인지 체크)
+        q = q.where(CalendarEvent.group_id == group_id)
+
+    elif scope == "all":
+        # 내가 속한 그룹 id 목록 가져오기 (service 함수 사용)
+        my_group_ids = get_my_group_ids(db, user_id)
+        q = q.where(
+            or_(
+                and_(
+                    CalendarEvent.user_id == user_id,
+                    CalendarEvent.group_id.is_(None),
+                ),
+                # 내가 속한 그룹들의 일정
+                CalendarEvent.group_id.in_(my_group_ids),
+            )
+        )
+        
     events = calendar_service.get_events_between(
         db=db,
         user_id=current_user.id,
