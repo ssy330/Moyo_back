@@ -143,3 +143,21 @@ def delete_comment(
         post_id=post_id,
         comment_id=comment_id,
     )
+
+# 게시글 삭제
+@router.delete(
+    "/{post_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_post(
+    group_id: int,
+    post_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+):
+    post_service.delete_post(
+        db=db,
+        user=user,
+        group_id=group_id,
+        post_id=post_id,
+    )

@@ -1,13 +1,19 @@
 # app/routers/friend.py
 from fastapi import APIRouter, Depends, HTTPException, status,Path
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.deps.auth import current_user as get_current_user 
 from app.database import get_db
 from app.models.user import User
 from app.models.friend_request import FriendRequest
-from app.schemas.friend import FriendOut, FriendRequestCreate, FriendRequestOut
+from app.schemas.friend import (
+    FriendOut,
+    FriendRequestCreate,
+    FriendRequestOut,
+    OutgoingFriendRequestOut,  # ✅ 이거 추가
+)
+from typing import List
 
 
 router = APIRouter(
@@ -89,6 +95,19 @@ def get_incoming_friend_requests(
         .all()
     )
     return qs
+
+@router.get("/outgoing", response_model=List[OutgoingFriendRequestOut])
+def get_outgoing_friend_requests(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    stmt = (
+        select(FriendRequest)
+        .where(FriendRequest.requester_id == current_user.id)
+        .order_by(FriendRequest.created_at.desc())
+    )
+    results = db.execute(stmt).scalars().all()
+    return results
 
 
 @router.post("/{request_id}/accept", response_model=FriendRequestOut)

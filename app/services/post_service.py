@@ -299,3 +299,35 @@ def delete_comment(
 
     db.delete(comment)
     db.commit()
+
+
+def delete_post(
+    db: Session,
+    user: User,
+    group_id: int,
+    post_id: int,
+):
+    post = (
+        db.query(Post)
+        .filter(
+            Post.id == post_id,
+            Post.group_id == group_id,
+        )
+        .first()
+    )
+
+    if not post:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="게시글을 찾을 수 없습니다.",
+        )
+
+    # 예시: 작성자만 삭제 가능하게
+    if post.user_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="게시글을 삭제할 권한이 없습니다.",
+        )
+
+    db.delete(post)
+    db.commit()
