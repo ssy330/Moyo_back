@@ -117,3 +117,11 @@ class Group(Base):
         .correlate_except(GroupMember)
         .scalar_subquery()
     )
+    
+    chat_room = relationship(
+        "ChatRoom",
+        back_populates="group",
+        uselist=False,            # 1:1
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )

@@ -38,6 +38,7 @@ class ChatRoom(Base):
 
     # 선택 사항: Group 모델에 back_populates 있으면 같이 연결
     # group = relationship("Group", back_populates="chat_room")
+    group = relationship("Group", back_populates="chat_room")
 
 
 class RoomMember(Base):

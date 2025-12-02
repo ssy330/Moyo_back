@@ -1,6 +1,6 @@
 # app/routers/rooms.py
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.models.group import Group
@@ -16,11 +16,11 @@ router = APIRouter(prefix="/api/v1/rooms", tags=["Rooms"])
 
 @router.get("/", response_model=list[RoomOut])
 def list_rooms(db: Session = Depends(get_db)):
-    rooms = db.query(ChatRoom).all()
+    rooms = db.query(ChatRoom).options(joinedload(ChatRoom.group)).all()
     return rooms
 
 
-# 🔥 누구나 방 만들 수 있게 user 의존성 제거
+# 누구나 방 만들 수 있게 user 의존성 제거
 @router.post("/", response_model=RoomOut, status_code=status.HTTP_201_CREATED)
 def create_room(
     data: RoomCreate,
