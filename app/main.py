@@ -66,17 +66,13 @@ app.include_router(invites_router.router, prefix="/api/v1")
 app.include_router(groups_router.router, prefix="/api/v1")
 app.include_router(post_router.router, prefix="/api/v1")
 app.include_router(calendar_router.router, prefix="/api/v1")
-<<<<<<< Updated upstream
 app.include_router(friend.router, prefix="/api/v1") 
 app.include_router(image_router.router, prefix="/api/v1")
-=======
-app.include_router(post_router.router)
->>>>>>> Stashed changes
 
 # 채팅 라우터
 app.include_router(rooms.router)
 app.include_router(messages.router)
-app.include_router(ws_endpoints.router)  # 🔥 이거 꼭 있어야 WebSocket 경로가 등록됨
+app.include_router(ws_endpoints.router)  
 
 # 5) 헬스체크
 @app.get("/", tags=["system"])
