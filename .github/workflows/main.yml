@@ -32,7 +32,7 @@ jobs: # 시킬 일
           context: . # Docker가 빌드할 작업 디렉토리 설정 .은 현재 디렉토리
           push: true # Docker Hub에 푸시할 지 여부
           platforms: linux/amd64 # ubuntu 64비트 리눅스용 아키텍쳐 설정
-          tags: hwanghotae/capstone-fastapi:latest # 만들어질 도커 이미지의 이름
+          tags: hwanghotae/moyo-fastapi:latest # 만들어질 도커 이미지의 이름
 
   deploy:
     runs-on: ubuntu-latest
@@ -52,7 +52,7 @@ jobs: # 시킬 일
           username: ${{ secrets.SSH_USER }} # HOST 이름 ubuntu의 경우 ubuntu 입력
           key: ${{ secrets.SSH_KEY }} # SSH_PRIVATE KEY 전부 입력 ----BEGIN 부터 END --- 까지 다 포함
           script: |
-            cd ~/capstone  # EC2의 프로젝트 폴더로 이동
+            cd /srv/moyo-back  # EC2의 프로젝트 폴더로 이동
             docker compose pull app # 최신 Docker 이미지 pull
             docker compose up -d --force-recreate app # 컨테이너 재시작
             docker image prune -af   # 이미지 파일 정리
