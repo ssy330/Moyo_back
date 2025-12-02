@@ -7,6 +7,7 @@ __pycache__/
 
 # 🔑 환경 변수 파일 (절대 노출 금지)
 .env
+docker-compose.yml
 
 # 💾 로컬 SQLite 데이터베이스
 app.db
