@@ -17,7 +17,7 @@ from app.routers import image as image_router
 from app.routers import rooms, messages  # etc...
 from app.websocket import endpoints as ws_endpoints
 from app.routers import calendar as calendar_router
-
+from app.routers import post as post_router
 
 # ─────────────────────────────
 # 1) DB 초기화
@@ -66,8 +66,12 @@ app.include_router(invites_router.router, prefix="/api/v1")
 app.include_router(groups_router.router, prefix="/api/v1")
 app.include_router(post_router.router, prefix="/api/v1")
 app.include_router(calendar_router.router, prefix="/api/v1")
+<<<<<<< Updated upstream
 app.include_router(friend.router, prefix="/api/v1") 
 app.include_router(image_router.router, prefix="/api/v1")
+=======
+app.include_router(post_router.router)
+>>>>>>> Stashed changes
 
 # 채팅 라우터
 app.include_router(rooms.router)
