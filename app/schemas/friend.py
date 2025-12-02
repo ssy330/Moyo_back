@@ -33,3 +33,34 @@ class FriendOut(BaseModel):
 
     class Config:
         arbitrary_types_allowed = True
+
+class FriendUser(BaseModel):
+    id: int
+    email: str
+    name: str
+    nickname: str
+    profile_image_url: str | None = None
+
+    class Config:
+        from_attributes = True  # pydantic v2 (orm_mode 대체)
+
+
+class FriendListGroup(BaseModel):
+    id: int
+    name: str
+    image_url: str | None = None
+
+    class Config:
+        from_attributes = True
+
+
+class OutgoingFriendRequestOut(BaseModel):
+    id: int
+    status: str
+    group_id: int | None = None
+    created_at: datetime
+    receiver: FriendUser
+    group: FriendListGroup | None = None
+
+    class Config:
+        from_attributes = True
