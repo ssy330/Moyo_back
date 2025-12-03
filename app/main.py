@@ -1,4 +1,5 @@
 # app/main.py
+import os
 from pathlib import Path
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
@@ -49,10 +50,12 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # ─────────────────────────────
 # 3) CORS
-origins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
+raw_origins = os.getenv("CORS_ORIGINS", "")
+origins = [o.strip() for o in raw_origins.split(",") if o.strip()]
+
+# 디버깅용으로 한 번 찍어봐도 됨
+print("CORS_ORIGINS:", origins)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
