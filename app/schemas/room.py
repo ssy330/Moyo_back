@@ -1,6 +1,6 @@
 # app/schemas/room.py
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 class RoomBase(BaseModel):
     name: str
@@ -14,7 +14,7 @@ class RoomGroupOut(BaseModel):
     image_url: str | None = None
 
     class Config:
-        orm_mode = True
+        model_config = ConfigDict(from_attributes=True)
 
 class RoomOut(RoomBase):
     id: int
@@ -25,4 +25,4 @@ class RoomOut(RoomBase):
     last_message_created_at: datetime | None = None
 
     class Config:
-        orm_mode = True
+        model_config = ConfigDict(from_attributes=True)

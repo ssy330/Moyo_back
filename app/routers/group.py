@@ -124,6 +124,16 @@ def create_group_api(
         # ⑥ 안정적 반환
         return GroupResponse.model_validate(g, from_attributes=True)
 
+    
+    # 👉 이미 만들어진 HTTPException(409, 401 등)은 그대로 통과
+    except HTTPException as e:
+        import traceback, sys
+        print("🔥 [ERROR] 그룹 생성 중 HTTPException 발생!")
+        print(traceback.format_exc())
+        sys.stdout.flush()
+        raise e
+
+    # 👉 진짜 예상 못 한 에러만 500으로 감싸기
     except Exception as e:
         import traceback, sys
         print("🔥 [ERROR] 그룹 생성 중 예외 발생!")

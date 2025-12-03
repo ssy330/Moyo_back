@@ -1,7 +1,7 @@
 # app/schemas/post.py
 from datetime import datetime
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 # ▶ 기존 PostCreate 그대로 두고 써도 됨
@@ -21,7 +21,7 @@ class PostOut(BaseModel):
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        model_config = ConfigDict(from_attributes=True)
 
 
 # 👤 작성자 정보 (UI용)
@@ -43,7 +43,7 @@ class CommentOut(BaseModel):
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        model_config = ConfigDict(from_attributes=True)
 
 
 # ❤️ 좋아요
@@ -65,7 +65,7 @@ class PostSummaryOut(BaseModel):
     is_liked: bool = False  # 현재 로그인 유저가 좋아요 눌렀는지
 
     class Config:
-        orm_mode = True
+        model_config = ConfigDict(from_attributes=True)
 
 
 # 📄 게시글 상세용
@@ -81,4 +81,4 @@ class PostDetailOut(BaseModel):
     comments: List[CommentOut] = []
 
     class Config:
-        orm_mode = True
+        model_config = ConfigDict(from_attributes=True)

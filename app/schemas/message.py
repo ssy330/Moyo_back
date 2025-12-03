@@ -1,6 +1,6 @@
 # app/schemas/message.py
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 class MessageBase(BaseModel):
     content: str
@@ -16,4 +16,4 @@ class MessageOut(MessageBase):
     user_nickname: str | None = None 
 
     class Config:
-        orm_mode = True
+        model_config = ConfigDict(from_attributes=True)
