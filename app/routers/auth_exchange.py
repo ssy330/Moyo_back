@@ -4,8 +4,8 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.user import User
-from app.schemas.auth import TokenOut  # { access_token, refresh_token? }
-from app.security import create_access_token, create_refresh_token  # 네가 쓰던 함수
+# from app.schemas.auth import TokenOut  # { access_token, refresh_token? }
+# from app.security import create_access_token, create_refresh_token  # 네가 쓰던 함수
 
 # --- (선택) Supabase JWT 검증 유틸 ---
 import requests, time
