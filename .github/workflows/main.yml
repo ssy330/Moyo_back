@@ -47,14 +47,11 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           script: |
-            # 1) 최신 이미지 pull
             docker pull hwanghotae/moyo-fastapi:latest
 
-            # 2) 기존 컨테이너 정리
             docker stop moyo-back || true
             docker rm moyo-back || true
 
-            # 3) 새 컨테이너 실행
             docker run -d \
               --name moyo-back \
               --env-file /srv/moyo-back/.env \

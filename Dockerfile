@@ -12,12 +12,20 @@ ENV PYTHONUNBUFFERED=1
 COPY requirements.txt .
 RUN pip install --upgrade pip &&  pip install --no-cache-dir -r requirements.txt
 
-# 도커 시간대 설정 -> 한국 시간대로
+# OS 패키지 먼저 설치 (tzdata + Postgres용 라이브러리)
 RUN apt-get update && \
-    apt-get install -y tzdata &&\
-    ln -sf /usr/share/zoneinfo/Asia/Seoul /etc/localtime &&\
-    echo "Asia/Seoul" > /etc/timezone &&\
-    apt-get clean
+    apt-get install -y --no-install-recommends \
+        tzdata \
+        build-essential \
+        libpq-dev && \
+    ln -sf /usr/share/zoneinfo/Asia/Seoul /etc/localtime && \
+    echo "Asia/Seoul" > /etc/timezone && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
 # 실제 프로젝트 코드 복사
 COPY . .
