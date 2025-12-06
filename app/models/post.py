@@ -1,5 +1,5 @@
 # app/models/post.py
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, func
+from sqlalchemy import JSON, Column, Integer, String, Text, ForeignKey, DateTime, func
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -16,7 +16,8 @@ class Post(Base):
     content = Column(Text, nullable=False)
 
     # 썸네일 / 대표 이미지 하나 정도 저장하고 싶으면
-    thumbnail_url = Column(String(500), nullable=True)
+    # thumbnail_url = Column(String(500), nullable=True)
+    image_urls = Column(JSON, nullable=False, default=list)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(

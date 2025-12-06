@@ -4,6 +4,7 @@ from typing import List
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 
+from pathlib import Path
 from app.models.post import Post, PostLike, PostComment
 from app.models.group import Group
 from app.models.user import User
@@ -17,6 +18,8 @@ from app.schemas.post import (
     AuthorInfo,
 )
 
+APP_DIR = Path(__file__).resolve().parents[1]
+STATIC_DIR = APP_DIR / "static"
 
 def _build_author_info(user: User) -> AuthorInfo:
     return AuthorInfo(
@@ -87,6 +90,7 @@ def list_posts(
                 like_count=like_count,
                 comment_count=comment_count,
                 is_liked=is_liked,
+                image_urls=getattr(p, "image_urls", []) or [],
             )
         )
 
@@ -109,6 +113,7 @@ def create_post(
         author_id=user.id,
         title=body.title,
         content=body.content,
+        image_urls=body.image_urls or [],
     )
 
     db.add(post)
@@ -125,6 +130,7 @@ def create_post(
         like_count=0,
         is_liked=False,
         comments=[],
+        image_urls=post.image_urls or [],
     )
 
 
@@ -165,6 +171,7 @@ def get_post_detail(
         like_count=like_count,
         is_liked=is_liked,
         comments=comments_out,
+        image_urls=post.image_urls or [],
     )
 
 
@@ -301,13 +308,37 @@ def delete_comment(
     db.commit()
 
 
+# ─────────────────────────────
+# 게시물 삭제
+# ─────────────────────────────
+def _url_to_file_path(url: str) -> Path | None:
+    """
+    /static/group_images/xxx.png  또는
+    static/group_images/xxx.png 같은 URL을
+    실제 파일 경로 (app/static/...) 로 변환
+    """
+    if not url:
+        return None
+
+    rel = url.lstrip("/")          # "/static/..." -> "static/..."
+    p = Path(rel)
+
+    try:
+        # "static/group_images/xxx.png" -> "group_images/xxx.png"
+        rel_under_static = p.relative_to("static")
+    except ValueError:
+        # static으로 안 시작하면 무시
+        return None
+
+    return STATIC_DIR / rel_under_static
+
 def delete_post(
     db: Session,
     user: User,
     group_id: int,
     post_id: int,
-):
-    post = (
+) -> None:
+    post: Post | None = (
         db.query(Post)
         .filter(
             Post.id == post_id,
@@ -322,12 +353,35 @@ def delete_post(
             detail="게시글을 찾을 수 없습니다.",
         )
 
-    # 예시: 작성자만 삭제 가능하게
-    if post.user_id != user.id:
+    # 🔹 권한 체크: 작성자만 삭제 가능
+    if post.author_id != user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="게시글을 삭제할 권한이 없습니다.",
         )
 
+    # 🔥 이미지 파일 삭제
+    urls_to_delete: list[str] = []
+
+    if getattr(post, "image_urls", None):
+        urls_to_delete.extend(post.image_urls)
+
+    # 썸네일도 static 이미지라면 같이 지우고 싶으면 추가
+    if getattr(post, "thumbnail_url", None):
+        urls_to_delete.append(post.thumbnail_url)
+
+    for url in urls_to_delete:
+        file_path = _url_to_file_path(url)
+        if not file_path:
+            continue
+
+        if file_path.exists():
+            try:
+                file_path.unlink()
+            except OSError:
+                # 삭제 실패해도 게시글 삭제는 진행
+                pass
+
+    # 🔥 게시글 삭제
     db.delete(post)
     db.commit()

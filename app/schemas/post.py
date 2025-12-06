@@ -63,6 +63,7 @@ class PostSummaryOut(BaseModel):
     like_count: int
     comment_count: int
     is_liked: bool = False  # 현재 로그인 유저가 좋아요 눌렀는지
+    image_urls: List[str] = []
 
     class Config:
         model_config = ConfigDict(from_attributes=True)
@@ -79,6 +80,7 @@ class PostDetailOut(BaseModel):
     like_count: int
     is_liked: bool
     comments: List[CommentOut] = []
+    image_urls: List[str] = []
 
     class Config:
         model_config = ConfigDict(from_attributes=True)
