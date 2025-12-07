@@ -186,7 +186,8 @@ def update_nickname(
         "is_active": user.is_active,
         "profile_image_url": user.profile_image_url,
     }
-    
+
+# 프로필 수정
 @router.patch("/me/profile-image")
 async def update_profile_image(
     profile_image: UploadFile = File(...),
@@ -209,9 +210,10 @@ async def update_profile_image(
     user = db.execute(select(User).where(User.email == email)).scalar_one_or_none()
     if not user:
       raise HTTPException(status_code=404, detail="User not found")
+  
+    old_url = user.profile_image_url
+    profile_image_url = await save_profile_image(profile_image, old_url=old_url)
 
-    # 새 이미지 저장
-    profile_image_url = await save_profile_image(profile_image)
     user.profile_image_url = profile_image_url
     db.commit()
     db.refresh(user)

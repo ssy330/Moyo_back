@@ -5,6 +5,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 
 from pathlib import Path
+from app.core.paths import delete_static_file
 from app.models.post import Post, PostLike, PostComment
 from app.models.group import Group
 from app.models.user import User
@@ -332,6 +333,7 @@ def _url_to_file_path(url: str) -> Path | None:
 
     return STATIC_DIR / rel_under_static
 
+
 def delete_post(
     db: Session,
     user: User,
@@ -353,35 +355,18 @@ def delete_post(
             detail="게시글을 찾을 수 없습니다.",
         )
 
-    # 🔹 권한 체크: 작성자만 삭제 가능
+    # 작성자만 삭제 가능
     if post.author_id != user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="게시글을 삭제할 권한이 없습니다.",
         )
 
-    # 🔥 이미지 파일 삭제
-    urls_to_delete: list[str] = []
-
+    # 🔥 1) 이미지 파일부터 삭제
     if getattr(post, "image_urls", None):
-        urls_to_delete.extend(post.image_urls)
+        for url in post.image_urls:
+            delete_static_file(url)
 
-    # 썸네일도 static 이미지라면 같이 지우고 싶으면 추가
-    if getattr(post, "thumbnail_url", None):
-        urls_to_delete.append(post.thumbnail_url)
-
-    for url in urls_to_delete:
-        file_path = _url_to_file_path(url)
-        if not file_path:
-            continue
-
-        if file_path.exists():
-            try:
-                file_path.unlink()
-            except OSError:
-                # 삭제 실패해도 게시글 삭제는 진행
-                pass
-
-    # 🔥 게시글 삭제
+    # 🔥 2) 게시글 삭제 (likes/comments는 cascade)
     db.delete(post)
     db.commit()
