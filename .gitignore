@@ -17,12 +17,8 @@ app.db
 .idea/
 .DS_Store
 
-# 잠시 추가
+# 업로드 이미지 폴더들 (Git에 올리지 않음)
 app/static/group_images/
-
-# 잠시 추가
 app/static/profile/
-
-app/statoc/post_images/
-
+app/static/post_images/
 uploads/
