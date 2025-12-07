@@ -47,16 +47,13 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           script: |
-            docker pull hwanghotae/moyo-fastapi:latest
+            cd /srv/moyo-back
 
-            docker stop moyo-back || true
-            docker rm moyo-back || true
+            # 1) 최신 이미지 받아오기
+            docker compose pull app
 
-            docker run -d \
-              --name moyo-back \
-              --env-file /srv/moyo-back/.env \
-              -p 8000:8000 \
-              hwanghotae/moyo-fastapi:latest
+            # 2) app 컨테이너 재기동 (이미지 바뀌면 새 컨테이너로)
+            docker compose up -d app
 
-            # 4) 오래된 이미지 정리 (선택)
+            # 3) 오래된 이미지 정리 (선택)
             docker image prune -af
