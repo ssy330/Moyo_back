@@ -14,6 +14,7 @@ from app.models.post import Post
 # ⚠️ 이 둘은 실제로 안 써도, mapper 설정 때문에 import 필요함
 from app.models.board_registry import BoardRegistry  # noqa: F401
 from app.models.room import ChatRoom  # noqa: F401
+from app.models.message import Message
 
 # 이미지 확장자
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
