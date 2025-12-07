@@ -46,7 +46,7 @@ PROFILE_DIR.mkdir(parents=True, exist_ok=True)
 
 # ✅ 그 다음 마운트
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+# app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # ─────────────────────────────
 # 3) CORS
